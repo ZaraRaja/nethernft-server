@@ -1,14 +1,15 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
+const User = require('./Routes/User');
+// Controllers (route handlers).
+const NFTController = require('./controller/nft');
+const dotenv = require('dotenv');
+// using env for secure our personal data/passwords
+dotenv.config({ path: './config.env' });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const User = require('./Routes/User');
-
-// using env for secure our personal data/passwords
-dotenv.config({ path: './config.env' });
 
 // connecting the database
 mongoose.connect(process.env.DATABASE);
@@ -26,16 +27,7 @@ app.use(express.json());
 app.use('/api/users', User);
 app.use('/api/userfile', User);
 
-/**
- * Controllers (route handlers).
- */
-
-const NFTController = require('./controller/nft');
-
-/**
- * Primary app routes.
- */
-
+// Primary app routes.
 app.post('/api/mintNft', NFTController.addNft);
 app.put('/api/setPrice/:id', NFTController.setPrice);
 app.get('/api/getPrice/:id', NFTController.getPrice);
