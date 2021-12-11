@@ -1,18 +1,20 @@
 const mongoose = require('mongoose');
 const nftSchema = new mongoose.Schema(
   {
-    cid: String,
-    img: String,
-    nameTitle: String,
+    name: String,
+    description: String,
+    token_name: String,
+    token_amount: Number,
+    price: Number,
+    file_hash: String,
+    file_format: String,
     owner: String,
-    title: String,
-    username: String,
-    price: String,
+    metadata_hash: String,
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true, versionKey: false }
 );
 
-const Nft = mongoose.model('Nft', nftSchema);
+const NFT = mongoose.model('NFT', nftSchema);
 
-module.exports = Nft;
+module.exports = NFT;

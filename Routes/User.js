@@ -7,7 +7,7 @@ const uploadMulter = require('../middlewares/upload');
 const jwt = require('jsonwebtoken');
 const Influencer = require('../model/Influencer');
 const Launchpad = require('../model/Launchpad');
-const Nft = require('../model/Nft');
+const NFT = require('../model/nft');
 const NftUser = require('../model/User');
 const multer = require('multer');
 const path = require('path');
@@ -37,7 +37,7 @@ router.post('/influencer', async (req, res) => {
   }
 });
 
-//ImageUpload for Influencer
+// ImageUpload for Influencer
 
 router.post('/influencer/imageUpload', influencerUpload, async (req, res) => {
   try {
@@ -150,8 +150,8 @@ router.get('/getusers', async (req, res) => {
 //get the data of nfts
 router.get('/getnfts', async (req, res) => {
   try {
-    const Nfts = await Nft.find();
-    // console.log("Nft User",Nfts)
+    const Nfts = await NFT.find();
+    // console.log("NFT User",Nfts)
     res.status(200).send({ message: 'User get details successfully', Nfts });
   } catch (error) {
     res.status(500).send({ message: error });
@@ -181,17 +181,14 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-//Sending data of nfts
-router.post('/mintNftpage', async (req, res) => {
+// Saving NFT Data
+router.post('/mint-nft', async (req, res) => {
   try {
-    console.log('Req.body', req.body);
-    const Nftpage = new Nft({
+    const new_nft = new NFT({
       ...req.body,
     });
-    // console.log(req.body)
-    const savedNftpage = await Nftpage.save();
-    // console.log("savedNft",savedNftpage)
-    res.status(200).json(savedNftpage);
+    const saved_nft = await new_nft.save();
+    res.status(200).json(saved_nft);
   } catch (err) {
     console.log(err);
   }

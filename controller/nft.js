@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const Joi = require('@hapi/joi');
 const services = require('../Services/Crud');
-const Nft = require('../model/Nft');
+const NFT = require('../model/nft');
 const Influencer = require('../model/Influencer');
 
 /**
@@ -30,7 +30,7 @@ exports.addNft = async (req, res, next) => {
       return res
         .status(400)
         .send({ success: false, message: 'Please try later', error });
-    const result_list = await services.add(Nft, value);
+    const result_list = await services.add(NFT, value);
     res.status(200).send({
       success: true,
       message: 'Successfully added',
@@ -63,7 +63,7 @@ exports.setPrice = async (req, res, next) => {
         .status(400)
         .send({ success: false, message: 'Please try later', error });
     const result = await services.updateOneAndReturn(
-      Nft,
+      NFT,
       { _id: req.params.id },
       {
         price: value.price,
@@ -86,7 +86,7 @@ exports.setPrice = async (req, res, next) => {
 
 exports.getPrice = async (req, res, next) => {
   try {
-    const result = await services.getOne(Nft, { _id: req.params.id }, {}, {});
+    const result = await services.getOne(NFT, { _id: req.params.id }, {}, {});
     res.send({ success: true, data: result });
   } catch (err) {
     console.log(err);
@@ -100,7 +100,7 @@ exports.getPrice = async (req, res, next) => {
 
 exports.getAllNFT = async (req, res, next) => {
   try {
-    const _list = await services.getList(Nft, {}, {});
+    const _list = await services.getList(NFT, {}, {});
     res.send({ success: true, data: _list });
   } catch (err) {
     console.log(err);
@@ -116,8 +116,8 @@ exports.transferOwnership = async (req, res, next) => {
   try {
     console.log('Req.body', req.body);
     const result = await services.updateOneAndReturn(
-      Nft,
-      { img: req.body.img, owner: req.body.owner },
+      NFT,
+      { file_hash: req.body.file_hash, owner: req.body.owner },
       {
         owner: req.body.buyer,
       },
