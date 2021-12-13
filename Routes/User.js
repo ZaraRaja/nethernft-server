@@ -3,41 +3,87 @@ const User = require('../model/User');
 const bcrypt = require('bcryptjs');
 const File = require('../model/File');
 const uploadMulter = require('../middlewares/upload');
-// const InfluencerImageUpload = require("../middlewares/influencerUpload");
-const jwt = require('jsonwebtoken');
 const Influencer = require('../model/Influencer');
 const Launchpad = require('../model/Launchpad');
 const NFT = require('../model/Nft');
 const NftUser = require('../model/User');
-const multer = require('multer');
-const path = require('path');
-const influencerUpload = require('../middlewares/influencerUpload');
+const influencerUpload = require('../middlewares/influencer.upload');
 const launchPadpage = require('../middlewares/launchPadpage');
 const services = require('../Services/Crud');
 
 // add influencer user
-router.post('/influencer', async (req, res) => {
+router.post('/become-influencer', async (req, res) => {
   console.log('Influencer', req.body);
   try {
-    const influencer = new Influencer(req.body);
-    const savedInfluencer = await influencer.save();
-    res.status(200).json(savedInfluencer);
+    const oldInfluencer = await Influencer.findOne({
+      wallet_address: req.body.wallet_address,
+    });
+
+    if (oldInfluencer) {
+      if (oldInfluencer.isApproved) {
+        return res.status(403).json({
+          status: 'fail',
+          message: 'You are already an Influencer!',
+        });
+      } else {
+        return res.status(403).json({
+          status: 'fail',
+          message: 'You have a pending request to become Influencer!',
+        });
+      }
+    }
+
+    const new_influencer = new Influencer(req.body);
+    const saved_influencer = await new_influencer.save();
+
+    res.status(200).json({
+      status: 'success',
+      data: saved_influencer,
+    });
   } catch (err) {
     console.log(err);
-    res.status(500).json(err);
+    res.status(500).json({
+      status: 'error',
+      error: err,
+    });
+  }
+});
+
+router.get('/influencer/:address', async (req, res) => {
+  try {
+    const influencer = await Influencer.findOne({
+      wallet_address: req.params.address,
+    });
+
+    if (!influencer) {
+      return res.status(404).json({
+        status: 'fail',
+        message: `The address doesn't belong to Influencer!`,
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      influencer: influencer,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      status: 'error',
+      error: err,
+    });
   }
 });
 
 // ImageUpload for Influencer
-
-router.post('/influencer/imageUpload', influencerUpload, async (req, res) => {
+router.post('/influencer/upload-images', influencerUpload, async (req, res) => {
   try {
     console.log(req.body);
     console.log(req.files['profileImage'][0]);
     console.log(req.files['coverImage'][0]);
     res.status(200).send({
-      profileImage: req.files['profileImage'][0].path,
-      coverImage: req.files['coverImage'][0].path,
+      profile_image: req.files['profileImage'][0].path,
+      cover_image: req.files['coverImage'][0].path,
     });
   } catch (err) {
     console.log(err);
@@ -77,7 +123,7 @@ router.post('/approve', async (req, res) => {
   }
 });
 
-//Register the user
+// Register the user
 router.post('/register', async (req, res) => {
   try {
     const email = req.body.email;
@@ -92,6 +138,9 @@ router.post('/register', async (req, res) => {
     });
 
     const savedUser = await newUser.save();
+
+    savedUser.password = undefined;
+
     res.status(200).json(savedUser);
   } catch (err) {
     console.log(err);

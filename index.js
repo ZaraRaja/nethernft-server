@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const User = require('./Routes/User');
 // Controllers (route handlers).
 const NFTController = require('./controller/nft');
-const UserWalletController = require('./controller/userwallet')
+const UserWalletController = require('./controller/userwallet');
 const dotenv = require('dotenv');
 // using env for secure our personal data/passwords
 dotenv.config({ path: './config.env' });
@@ -22,7 +22,7 @@ mongodb.on('open', () => {
   console.log('DB is Connected');
 });
 
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(__dirname + '/uploads'));
 app.use(cors());
 app.use(express.json());
 app.use('/api/users', User);

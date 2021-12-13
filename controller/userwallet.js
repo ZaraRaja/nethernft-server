@@ -20,4 +20,3 @@ exports.userWalletAccount = async (req, res, next) => {
     console.log('Error', e);
   }
 };
-

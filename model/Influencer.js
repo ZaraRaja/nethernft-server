@@ -2,20 +2,22 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const influencerSchema = new Schema({
-  websiteLink: String,
-  youtubeLink: String,
-  facebookLink: String,
-  twiterLink: String,
-  snapchatLink: String,
-  walletAddress: String,
-  influencerName: String,
-  profileImage: Object,
-  coverImage: Object,
+  website_url: String,
+  youtube_channel_url: String,
+  facebook_username: String,
+  twitch_username: String,
+  snapchat_username: String,
+  twitter_username: String,
+  instagram_username: String,
+  wallet_address: String,
+  name: String,
+  email: String,
+  short_bio: String,
+  field: String,
+  profile_image: Object,
+  cover_image: Object,
   isDeleted: { type: Boolean, default: false },
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'NftUser',
-  },
+  isApproved: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model('Influencer', influencerSchema);

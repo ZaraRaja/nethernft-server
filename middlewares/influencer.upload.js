@@ -3,11 +3,11 @@ const path = require('path');
 
 const storage = multer.diskStorage({
   destination: (req, res, cb) => {
-    cb(null, './influencerUploads');
+    cb(null, './uploads');
   },
   filename: (req, file, cb) => {
     console.log('UploadedImage', file);
-    cb(null, `${'congar -'}${Date.now()}${path.extname(file.originalname)}`);
+    cb(null, `${'congar-'}${Date.now()}${path.extname(file.originalname)}`);
   },
 });
 
