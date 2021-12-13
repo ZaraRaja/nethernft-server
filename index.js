@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const User = require('./Routes/User');
 // Controllers (route handlers).
 const NFTController = require('./controller/nft');
+const UserWalletController = require('./controller/userwallet')
 const dotenv = require('dotenv');
 // using env for secure our personal data/passwords
 dotenv.config({ path: './config.env' });
@@ -33,7 +34,7 @@ app.put('/api/setPrice/:id', NFTController.setPrice);
 app.get('/api/getPrice/:id', NFTController.getPrice);
 app.get('/api/getAllNft', NFTController.getAllNFT);
 app.put('/api/transferOwnership', NFTController.transferOwnership);
-
+app.post('/api/userWalletAddress', UserWalletController.userWalletAccount);
 // our app listening on defined Port
 app.listen(PORT, () => {
   console.log(`App running on ${PORT}`);
