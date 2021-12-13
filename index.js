@@ -34,7 +34,7 @@ app.put('/api/setPrice/:id', NFTController.setPrice);
 app.get('/api/getPrice/:id', NFTController.getPrice);
 app.get('/api/getAllNft', NFTController.getAllNFT);
 app.put('/api/transferOwnership', NFTController.transferOwnership);
-app.post('/api/userWalletAddress', UserWalletController.userWalletAccount);
+app.post('/api/user-wallet-address', UserWalletController.userWalletAccount);
 // our app listening on defined Port
 app.listen(PORT, () => {
   console.log(`App running on ${PORT}`);
