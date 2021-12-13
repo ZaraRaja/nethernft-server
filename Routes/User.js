@@ -19,18 +19,9 @@ const services = require('../Services/Crud');
 router.post('/influencer', async (req, res) => {
   console.log('Influencer', req.body);
   try {
-    const nftUser = await NftUser.findByIdAndUpdate(
-      req.body.userId,
-      { $set: { isRequested: true } },
-      { new: true }
-    );
-    console.log(nftUser);
-
-    if (nftUser.isRequested) {
-      const influencer = new Influencer(req.body);
-      const savedInfluencer = await influencer.save();
-      res.status(200).json(savedInfluencer);
-    }
+    const influencer = new Influencer(req.body);
+    const savedInfluencer = await influencer.save();
+    res.status(200).json(savedInfluencer);
   } catch (err) {
     console.log(err);
     res.status(500).json(err);
