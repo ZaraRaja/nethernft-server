@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const Joi = require('@hapi/joi');
 const services = require('../Services/Crud');
-const NFT = require('../model/nft');
+const NFT = require('../model/Nft');
 const Influencer = require('../model/Influencer');
 
 /**
