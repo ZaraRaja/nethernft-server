@@ -11,33 +11,13 @@ const Influencer = require('../model/Influencer');
 
 exports.addNft = async (req, res, next) => {
   try {
-    console.log('Req.body', req.body);
-
-    const schema = Joi.object().keys({
-      id: Joi.number().required(),
-      img: Joi.string().required(),
-      nameTitle: Joi.string().required(),
-      owner: Joi.string().required(),
-      title: Joi.string().required(),
-      username: Joi.string().required(),
+    const new_nft = new NFT({
+      ...req.body,
     });
-
-    const { error, value } = Joi.validate(req.body, schema, {
-      abortEarly: true,
-      allowUnknown: true,
-    });
-    if (!_.isNull(error))
-      return res
-        .status(400)
-        .send({ success: false, message: 'Please try later', error });
-    const result_list = await services.add(NFT, value);
-    res.status(200).send({
-      success: true,
-      message: 'Successfully added',
-      data: result_list,
-    });
-  } catch (e) {
-    console.log('Error', e);
+    const saved_nft = await new_nft.save();
+    res.status(200).json(saved_nft);
+  } catch (err) {
+    console.log(err);
   }
 };
 
@@ -100,10 +80,10 @@ exports.getPrice = async (req, res, next) => {
 
 exports.getAllNFT = async (req, res, next) => {
   try {
-    const _list = await services.getList(NFT, {}, {});
-    res.send({ success: true, data: _list });
-  } catch (err) {
-    console.log(err);
+    const Nfts = await NFT.find();
+    res.status(200).send({ message: 'User get details successfully', Nfts });
+  } catch (error) {
+    res.status(500).send({ message: error });
   }
 };
 
