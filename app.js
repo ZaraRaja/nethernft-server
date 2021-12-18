@@ -3,7 +3,8 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const cors = require('cors');
-const User = require('./Routes/User');
+const AppError = require('./utils/AppError');
+const errorController = require('./controller/error_controller');
 
 const app = express();
 
@@ -20,56 +21,74 @@ app.use(morgan('tiny'));
 app.use(helmet());
 
 app.use('/uploads', express.static(__dirname + '/uploads'));
-app.use('/api/users', User);
-app.use('/api/userfile', User);
 
 /**
  * App middlwares
  */
-const launchPadpage = require('./middlewares/launchPadpage');
-const influencerUpload = require('./middlewares/influencer.upload');
-const uploadMulter = require('./middlewares/upload');
+const launchpadUpload = require('./middlewares/launchpad_upload');
+const influencerUpload = require('./middlewares/influencer_upload');
 
 /**
  * App Controllers.
  */
+const AuthController = require('./controller/auth');
 const NFTController = require('./controller/nft');
-const UserWalletController = require('./controller/userwallet');
 const LaunchpadController = require('./controller/launchpad');
 const InfluencerController = require('./controller/influencer');
 const UserController = require('./controller/user');
-const FileController = require('./controller/file');
+const response_messages = require('./config/response_messages');
 
 /**
  * Primary app routes.
  */
-app.post('/api/mint-nft', NFTController.addNft);
-app.put('/api/setPrice/:id', NFTController.setPrice);
-app.get('/api/getPrice/:id', NFTController.getPrice);
-app.get('/api/users/getnfts', NFTController.getAllNFT);
-app.put('/api/transferOwnership', NFTController.transferOwnership);
-app.post('/api/user-wallet-address', UserWalletController.userWalletAccount);
-app.post('/api/users/launchpad', launchPadpage, LaunchpadController.launchpad);
-app.post('/api/users/become-influencer', InfluencerController.becomeInfluencer);
+
+// NFT Routes
+app.get('/api/nfts', NFTController.getAllNFTs);
+app.post('/api/nfts/mint', NFTController.mint);
+app.patch('/api/nfts/price/:id', NFTController.updatePrice);
+app.get('/api/nfts/price/:id', NFTController.getPrice);
+app.patch('/api/nfts/transfer-ownership', NFTController.transferOwnership);
+
+// Launchpad Routes
+app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
+
+// Influencers Routes
+app.post('/api/influencers', InfluencerController.becomeInfluencer);
 app.get(
-  '/api/users/influencer/:address',
-  InfluencerController.getInfluencerBasedOnAddress
+  '/api/influencers/:address',
+  InfluencerController.getInfluencerByAddress
 );
 app.post(
-  '/api/users/influencer/upload-images',
+  '/api/influencers/upload-images',
   influencerUpload,
   InfluencerController.uploadInflencerImages
 );
-app.post('/api/users/approve', UserController.approveInfluencer);
-app.post('/api/users/register', UserController.registerUser);
-app.post('/api/users/login', UserController.loginUser);
-app.get('/api/users/getusers', UserController.getAllUsers);
-app.get('/api/users/:id', UserController.getOneUser);
-app.get('/api/userfile/getHashFiles', FileController.getHashedOfFiles);
-app.post('/api/users/file', uploadMulter, FileController.addFiles);
+app.post(
+  '/api/influencers/approve/:address',
+  InfluencerController.approveInfluencer
+);
+
+// Auth Routes
+app.post('/api/auth/signup', AuthController.signup);
+app.post('/api/auth/login', AuthController.login);
+
+// Users Routes
+app.get('/api/users', UserController.getAllUsers);
+app.get('/api/users/:address', UserController.getUserByAddress);
 
 /**
- * App Listening to the port
+ * Error Handling
  */
+app.use((req, res, next) => {
+  next(
+    new AppError(
+      response_messages.URL_NOT_FOUND,
+      `The url ${req.originalUrl} does not exist!`,
+      404
+    )
+  );
+});
+
+app.use(errorController);
 
 module.exports = app;

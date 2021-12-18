@@ -14,6 +14,7 @@
       "error",
       { "singleQuote": true, "endOfLine": "auto" }
     ],
-    "no-unused-vars": "warn"
+    "no-unused-vars": "warn",
+    "object-curly-spacing": ["warn", "always"]
   }
 }

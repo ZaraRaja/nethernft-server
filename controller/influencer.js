@@ -1,92 +1,151 @@
+const response_messages = require('../config/response_messages');
 const Influencer = require('../model/Influencer');
+const Crud = require('../services/Crud');
+const catchAsync = require('../utils/catch_async');
 
 /**
  * POST
  * Adding an Influncer
  */
-exports.becomeInfluencer = async (req, res, next) => {
-  console.log('Influencer', req.body);
-  try {
-    const oldInfluencer = await Influencer.findOne({
-      wallet_address: req.body.wallet_address,
-    });
+exports.becomeInfluencer = catchAsync(async (req, res, next) => {
+  const { account_address } = req.body;
 
-    if (oldInfluencer) {
-      if (oldInfluencer.isApproved) {
-        return res.status(403).json({
-          status: 'fail',
-          message: 'You are already an Influencer!',
-        });
-      } else {
-        return res.status(403).json({
-          status: 'fail',
-          message: 'You have a pending request to become Influencer!',
-        });
-      }
-    }
-
-    const new_influencer = new Influencer(req.body);
-    const saved_influencer = await new_influencer.save();
-
-    res.status(200).json({
-      status: 'success',
-      data: saved_influencer,
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      status: 'error',
-      error: err,
-    });
+  if (!account_address) {
+    return next(
+      new AppError(
+        response_messages.MISSING_REQUIRED_FIELDS,
+        'account_address field is required!',
+        400
+      )
+    );
   }
-};
+
+  const oldInfluencer = await Crud.getOne(Influencer, {
+    account_address,
+  });
+
+  if (oldInfluencer) {
+    if (oldInfluencer.isApproved) {
+      return next(
+        new AppError(
+          response_messages.ALREADY_INFLUENCER,
+          'You are already an Influencer!',
+          403
+        )
+      );
+    } else {
+      return next(
+        new AppError(
+          response_messages.INFLUENCER_REQUEST_PENDING,
+          'You have a pending request to become Influencer!',
+          403
+        )
+      );
+    }
+  }
+
+  // TODO: validate req.body, don't trust client side
+  const new_influencer = new Influencer({
+    ...req.body,
+    isDeleted: false,
+    isApproved: false,
+  });
+
+  const saved_influencer = await new_influencer.save();
+
+  // TODO: save the reference of saved_influencer in corresponding user document
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.INFLUENCER_CREATED,
+    message_description: 'Your request is submitted to become an Influencer!',
+    influencer: saved_influencer,
+  });
+});
 
 /**
  * GET
  * Fetching Influncer based on Address
  */
 
-exports.getInfluencerBasedOnAddress = async (req, res, next) => {
-  try {
-    const influencer = await Influencer.findOne({
-      wallet_address: req.params.address,
-    });
+exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
+  const influencer = await Crud.getOne(Influencer, {
+    account_address: req.params.address,
+  });
 
-    if (!influencer) {
-      return res.status(404).json({
-        status: 'fail',
-        message: `The address doesn't belong to Influencer!`,
-      });
-    }
-
-    res.status(200).json({
-      status: 'success',
-      influencer: influencer,
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      status: 'error',
-      error: err,
-    });
+  if (!influencer) {
+    return next(
+      new AppError(
+        responseMessages.INFLUENCER_NOT_FOUND,
+        'Influencer does not exist!',
+        404
+      )
+    );
   }
-};
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: `Influencer with Address: ${req.params.address}`,
+    influencer,
+  });
+});
 
 /**
  * POST
  * Uploading Influencer Images
  */
 
-exports.uploadInflencerImages = async (req, res, next) => {
-  try {
-    console.log(req.body);
-    console.log(req.files['profileImage'][0]);
-    console.log(req.files['coverImage'][0]);
-    res.status(200).send({
-      profile_image: req.files['profileImage'][0].path,
-      cover_image: req.files['coverImage'][0].path,
-    });
-  } catch (err) {
-    console.log(err);
+exports.uploadInflencerImages = catchAsync(async (req, res, next) => {
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.IMAGES_UPLOADED,
+    message_description: `Influencer images uploaded successfully!`,
+    images: {
+      profile_image: req.files['profile_image'][0].path,
+      cover_image: req.files['cover_image'][0].path,
+    },
+  });
+});
+
+/**
+ * POST
+ * Admin approve Influncer
+ */
+
+exports.approveInfluencer = catchAsync(async (req, res, next) => {
+  const influencer = await Crud.getOne(Influencer, {
+    account_address: req.params.address,
+  });
+
+  if (!influencer) {
+    return next(
+      new AppError(
+        responseMessages.INFLUENCER_NOT_FOUND,
+        'Influencer does not exist!',
+        404
+      )
+    );
   }
-};
+
+  if (influencer.isApproved) {
+    return next(
+      new AppError(
+        responseMessages.INFLUENCER_ALREADY_APPROVED,
+        'Influencer account is already approved!',
+        403
+      )
+    );
+  }
+
+  influencer.isApproved = true;
+
+  const saved_influencer = await influencer.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.INFLUENCER_APPROVED,
+    message_description: `Influencer is approved successfully!`,
+    influencer: saved_influencer,
+  });
+});

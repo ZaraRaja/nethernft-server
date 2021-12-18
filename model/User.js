@@ -1,26 +1,17 @@
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Schema.Types;
 
-const NftUser = mongoose.Schema({
+const User = mongoose.Schema({
   username: { type: 'string', required: true },
-  connectedAccount: { type: 'string', required: true },
-  email: { type: 'string', required: true },
-  password: { type: 'string', required: true },
+  account_address: { type: 'string', required: true },
+  email: { type: 'string' },
   roles: {
     type: String,
-    enum: ['User', 'Admin'],
-    default: 'User',
+    enum: ['user', 'admin'],
+    default: 'user',
   },
-  followers: [{ type: ObjectId, ref: 'User' }],
-  following: [{ type: ObjectId, ref: 'User' }],
-  isInfluencer: {
-    type: Boolean,
-    default: false,
-  },
-  isRequested: {
-    type: Boolean,
-    default: false,
-  },
+  following: [{ type: ObjectId, ref: 'Influencer' }],
+  influencer: { type: ObjectId, ref: 'Influencer' },
 });
 
-module.exports = mongoose.model('NftUser', NftUser);
+module.exports = mongoose.model('User', User);

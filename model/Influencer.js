@@ -9,7 +9,7 @@ const influencerSchema = new Schema({
   snapchat_username: String,
   twitter_username: String,
   instagram_username: String,
-  wallet_address: String,
+  account_address: String,
   name: String,
   email: String,
   short_bio: String,
