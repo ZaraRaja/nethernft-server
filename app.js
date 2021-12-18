@@ -1,29 +1,25 @@
 const express = require('express');
+const cookieParser = require('cookie-parser');
+const morgan = require('morgan');
+const helmet = require('helmet');
 const cors = require('cors');
-const mongoose = require('mongoose');
 const User = require('./Routes/User');
-const dotenv = require('dotenv');
 
-/**
- * Environment Configurations.
- */
-dotenv.config({ path: './config.env' });
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-/**
- * Database Connectivity
- */
-mongoose.connect(process.env.DATABASE);
-
-const mongodb = mongoose.connection;
-mongodb.on('open', () => {
-  console.log('DB is Connected');
-});
+app.use(
+  cors({
+    origin: process.env.CLIENTNAME,
+    credentials: true,
+  })
+);
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('tiny'));
+app.use(helmet());
 
 app.use('/uploads', express.static(__dirname + '/uploads'));
-app.use(cors());
-app.use(express.json());
 app.use('/api/users', User);
 app.use('/api/userfile', User);
 
@@ -75,6 +71,5 @@ app.post('/api/users/file', uploadMulter, FileController.addFiles);
 /**
  * App Listening to the port
  */
-app.listen(PORT, () => {
-  console.log(`App running on ${PORT}`);
-});
+
+module.exports = app;
