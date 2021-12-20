@@ -1,7 +1,10 @@
-const response_messages = require('../config/response_messages');
+const responseMessages = require('../config/response_messages');
+const User = require('../model/User');
 const Influencer = require('../model/Influencer');
+const userRoles = require('../config/user_roles');
 const Crud = require('../services/Crud');
 const catchAsync = require('../utils/catch_async');
+const AppError = require('../utils/AppError');
 
 /**
  * POST
@@ -13,22 +16,23 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
   if (!account_address) {
     return next(
       new AppError(
-        response_messages.MISSING_REQUIRED_FIELDS,
+        responseMessages.MISSING_REQUIRED_FIELDS,
         'account_address field is required!',
         400
       )
     );
   }
 
-  const oldInfluencer = await Crud.getOne(Influencer, {
+  // TODO: replace it with req.user
+  const user = await User.findOne({
     account_address,
-  });
+  }).populate(userRoles.INFLUENCER);
 
-  if (oldInfluencer) {
-    if (oldInfluencer.isApproved) {
+  if (user.roles.includes(userRoles.INFLUENCER)) {
+    if (user[userRoles.INFLUENCER].isApproved) {
       return next(
         new AppError(
-          response_messages.ALREADY_INFLUENCER,
+          responseMessages.ALREADY_INFLUENCER,
           'You are already an Influencer!',
           403
         )
@@ -36,7 +40,7 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
     } else {
       return next(
         new AppError(
-          response_messages.INFLUENCER_REQUEST_PENDING,
+          responseMessages.INFLUENCER_REQUEST_PENDING,
           'You have a pending request to become Influencer!',
           403
         )
@@ -53,13 +57,24 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
 
   const saved_influencer = await new_influencer.save();
 
-  // TODO: save the reference of saved_influencer in corresponding user document
+  // save the reference of saved_influencer in corresponding user document
+  user.roles.push(userRoles.INFLUENCER);
+  user[userRoles.INFLUENCER] = saved_influencer._id;
+
+  let saved_user;
+
+  try {
+    saved_user = await user.save();
+  } catch (error) {
+    await saved_influencer.remove();
+    return next(error);
+  }
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.INFLUENCER_CREATED,
     message_description: 'Your request is submitted to become an Influencer!',
-    influencer: saved_influencer,
+    user: saved_user,
   });
 });
 

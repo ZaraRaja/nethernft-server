@@ -1,7 +1,10 @@
 const User = require('../model/User');
+const AppError = require('../utils/AppError');
 const catchAsync = require('../utils/catch_async');
 const Crud = require('../services/Crud');
-const response_messages = require('../config/response_messages');
+const responseMessages = require('../config/response_messages');
+const userRoles = require('../config/user_roles');
+const web3 = require('../config/web3');
 
 /**
  * GET
@@ -25,24 +28,20 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
  */
 
 exports.getUserByAddress = catchAsync(async (req, res, next) => {
-  const user = await Crud.getOne(User, {
-    account_address: req.params.address,
-  });
+  const user = await User.findOne({
+    account_address: web3.utils.toChecksumAddress(req.params.account_address),
+  }).populate(userRoles.INFLUENCER);
 
   if (!user) {
     return next(
-      new AppError(
-        response_messages.USER_NOT_FOUND,
-        'User does not exist!',
-        404
-      )
+      new AppError(responseMessages.USER_NOT_FOUND, 'User does not exist!', 404)
     );
   }
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
-    message_description: `User with Address: ${req.params.address}`,
+    message_description: `User with Address: ${req.params.account_address}`,
     user,
   });
 });

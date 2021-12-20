@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const dbCollections = require('../config/db_collections');
 const Schema = mongoose.Schema;
 
 const Launchpage = new Schema({
@@ -16,4 +17,4 @@ const Launchpage = new Schema({
   isDeleted: { type: Boolean, default: false },
 });
 
-module.exports = mongoose.model('Launchpad', Launchpage);
+module.exports = mongoose.model(dbCollections.LAUNCHPAD.model, Launchpage);

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const dbCollections = require('../config/db_collections');
 const Schema = mongoose.Schema;
 
 const influencerSchema = new Schema({
@@ -9,7 +10,12 @@ const influencerSchema = new Schema({
   snapchat_username: String,
   twitter_username: String,
   instagram_username: String,
-  account_address: String,
+  // TODO: remove it from here
+  account_address: {
+    type: String,
+    unique: true,
+    required: true,
+  },
   name: String,
   email: String,
   short_bio: String,
@@ -20,4 +26,7 @@ const influencerSchema = new Schema({
   isApproved: { type: Boolean, default: false },
 });
 
-module.exports = mongoose.model('Influencer', influencerSchema);
+module.exports = mongoose.model(
+  dbCollections.INFLUENCER.model,
+  influencerSchema
+);

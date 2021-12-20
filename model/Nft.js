@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const dbCollections = require('../config/db_collections');
+
 const nftSchema = new mongoose.Schema(
   {
     name: String,
@@ -15,6 +17,6 @@ const nftSchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
-const NFT = mongoose.model('NFT', nftSchema);
+const NFT = mongoose.model(dbCollections.NFT.model, nftSchema);
 
 module.exports = NFT;
