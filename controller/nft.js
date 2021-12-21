@@ -1,5 +1,5 @@
 const Crud = require('../services/Crud');
-const NFT = require('../model/NFT');
+const NFT = require('../model/Nft');
 const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
@@ -110,6 +110,22 @@ exports.getAllNFTs = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * Get
+ * Getting One Nfts
+ */
+
+exports.getOneNft = catchAsync(async (req, res, next) => {
+  const nft = await Crud.getOne(NFT,{ _id: req.params.id }, {});
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'NFT Data',
+    nft,
+  });
+});
+
+ 
 /**
  * PATCH
  * Transfering Ownership of an NFT
