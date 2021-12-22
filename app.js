@@ -44,17 +44,13 @@ const UserController = require('./controller/user');
  */
 
 // NFT Routes
-app.get('/api/nfts', NFTController.getAllNFTs);
-app.get('/api/nft/:id', NFTController.getOneNft);
 app.post('/api/nfts/mint', auth.authenticate, NFTController.mint);
 app.patch('/api/nfts/price/:id', auth.authenticate, NFTController.updatePrice);
 app.get('/api/nfts/price/:id', NFTController.getPrice);
-app.patch(
-  '/api/nfts/transfer-ownership',
-  auth.authenticate,
-  NFTController.transferOwnership
-);
 app.get('/api/nfts/by-address/:address', NFTController.getNftsByAddress);
+app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
+app.get('/api/nfts', NFTController.getAllNFTs);
+app.get('/api/nfts/:id', NFTController.getOneNft);
 
 // Launchpad Routes
 app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);

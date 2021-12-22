@@ -1,5 +1,7 @@
 const Crud = require('../services/Crud');
 const NFT = require('../model/Nft');
+const Influencer = require('../model/Influencer');
+const Transaction = require('../model/Transaction');
 const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
@@ -118,11 +120,20 @@ exports.getAllNFTs = catchAsync(async (req, res, next) => {
 
 exports.getOneNft = catchAsync(async (req, res, next) => {
   const nft = await Crud.getOne(NFT, { _id: req.params.id }, {});
+  const user = await Crud.getOne(Influencer, { account_address: nft.owner });
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'NFT Data',
     nft,
+    user,
   });
 });
 
@@ -131,23 +142,51 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
  * Transfering Ownership of an NFT
  */
 
-exports.transferOwnership = catchAsync(async (req, res, next) => {
-  const { file_hash, owner, buyer } = req.body;
+exports.buy = catchAsync(async (req, res, next) => {
+  const { _id, seller, buyer, transaction_hash } = req.body;
+  let { token_price, purchased_amount } = req.body;
 
-  if (!file_hash || !owner || !buyer) {
+  if (
+    !_id ||
+    !seller ||
+    !buyer ||
+    !purchased_amount ||
+    !token_price ||
+    !transaction_hash
+  ) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'file_hash, owner and buyer fields are required',
+        '_id, seller, buyer, purchases_amount, transaction_hash and token_price fields are required',
         400
       )
     );
   }
 
-  const nft = await Crud.getOne(NFT, {
-    file_hash,
-    owner,
-  });
+  if (!web3.utils.isAddress(buyer) || !web3.utils.isAddress(seller)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_ACCOUNT_ADDRESS,
+        'Buyer/Seller Account Address are invalid!',
+        400
+      )
+    );
+  }
+
+  token_price = Number(token_price);
+  purchased_amount = Number(purchased_amount);
+
+  if (isNaN(token_price) || isNaN(purchased_amount)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Token Price and Purchased Amount should be a number!',
+        400
+      )
+    );
+  }
+
+  const nft = await NFT.findById(_id);
 
   if (!nft) {
     return next(
@@ -155,15 +194,28 @@ exports.transferOwnership = catchAsync(async (req, res, next) => {
     );
   }
 
-  nft.owner = buyer;
+  nft.tokens_sold += purchased_amount;
 
   const saved_nft = await nft.save();
+  console.log('Saved nft'.saved_nft);
+
+  const trx = new Transaction({
+    nft: _id,
+    buyer: web3.utils.toChecksumAddress(buyer),
+    seller: web3.utils.toChecksumAddress(seller),
+    token_amount: purchased_amount,
+    token_price: token_price,
+    transaction_hash,
+  });
+
+  saved_trx = await trx.save();
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.NFT_OWNERSHIP_TRANSFERRED,
     message_description: 'NFT ownership transferred!',
     nft: saved_nft,
+    trx: saved_trx,
   });
 });
 

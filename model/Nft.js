@@ -7,6 +7,7 @@ const nftSchema = new mongoose.Schema(
     description: String,
     token_name: String,
     token_amount: Number,
+    token_sold: { type: Number, default: 0 },
     price: Number,
     file_hash: String,
     file_format: String,
