@@ -5,6 +5,7 @@ const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
 const responseMessages = require('../config/response_messages');
 const userRoles = require('../config/user_roles');
+const web3 = require('../config/web3');
 
 exports.authenticate = catchAsync(async (req, res, next) => {
   // 1) Get & Check if there is auth token in the header
@@ -33,7 +34,7 @@ exports.authenticate = catchAsync(async (req, res, next) => {
 
   // 3) Check if user still exists
   const currentUser = await User.findOne({
-    account_address: decoded.account_address,
+    account_address: web3.utils.toChecksumAddress(decoded.account_address),
   }).populate(userRoles.INFLUENCER);
 
   if (!currentUser) {
@@ -70,7 +71,7 @@ exports.isLoggedIn = catchAsync(async (req, res, next) => {
 
   // 3) Check if user still exists
   const currentUser = await User.findOne({
-    account_address: decoded.account_address,
+    account_address: web3.utils.toChecksumAddress(decoded.account_address),
   }).populate(userRoles.INFLUENCER);
 
   if (!currentUser) {

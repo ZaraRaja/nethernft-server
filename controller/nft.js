@@ -13,11 +13,74 @@ const web3 = require('../config/web3');
  */
 
 exports.mint = catchAsync(async (req, res, next) => {
-  // TODO: Validate req.body
+  const {
+    name,
+    description,
+    token_name,
+    file_hash,
+    file_format,
+    owner,
+    metadata_hash,
+  } = req.body;
+  let { token_amount, price } = req.body;
+
+  if (
+    !name.trim() ||
+    !description.trim() ||
+    !token_name.trim() ||
+    !token_amount ||
+    !price ||
+    !file_hash.trim() ||
+    !file_format.trim() ||
+    !owner.trim() ||
+    !metadata_hash.trim()
+  ) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Name, description, token_name, token_amount, price, file_hash, file_format, owner, metadata_hash fields are required!',
+        400
+      )
+    );
+  }
+
+  token_amount = Number(token_amount);
+  price = Number(price);
+
+  if (isNaN(token_amount) || isNaN(price)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Token Amount and Price should be numbers!',
+        400
+      )
+    );
+  }
+
+  if (!web3.utils.isAddress(owner)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_ACCOUNT_ADDRESS,
+        'Account Address is invalid!',
+        400
+      )
+    );
+  }
+
   const new_nft = new NFT({
-    ...req.body,
+    name,
+    description,
+    token_name,
+    token_amount,
+    price,
+    file_hash,
+    file_format,
+    metadata_hash,
+    owner: web3.utils.toChecksumAddress(owner),
   });
+
   const saved_nft = await new_nft.save();
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.NFT_MINTED,
@@ -120,11 +183,19 @@ exports.getAllNFTs = catchAsync(async (req, res, next) => {
 
 exports.getOneNft = catchAsync(async (req, res, next) => {
   const nft = await Crud.getOne(NFT, { _id: req.params.id }, {});
-  const user = await Crud.getOne(Influencer, { account_address: nft.owner });
+  const user = await Crud.getOne(Influencer, {
+    account_address: web3.utils.toChecksumAddress(nft.owner),
+  });
 
   if (!nft) {
     return next(
       new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  if (!user) {
+    return next(
+      new AppError(responseMessages.USER_NOT_FOUND, 'User does not exist!', 404)
     );
   }
 
@@ -227,6 +298,7 @@ exports.getNftsByAddress = catchAsync(async (req, res, next) => {
   const all_nfts = await Crud.getList(NFT, {
     owner: web3.utils.toChecksumAddress(req.params.address),
   });
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,

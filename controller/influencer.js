@@ -5,6 +5,7 @@ const userRoles = require('../config/user_roles');
 const Crud = require('../services/Crud');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
+const web3 = require('../config/web3');
 
 /**
  * POST
@@ -23,9 +24,19 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (!web3.utils.isAddress(account_address)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_ACCOUNT_ADDRESS,
+        'Account Address is invalid!',
+        400
+      )
+    );
+  }
+
   // TODO: replace it with req.user
   const user = await User.findOne({
-    account_address,
+    account_address: web3.utils.toChecksumAddress(account_address),
   }).populate(userRoles.INFLUENCER);
 
   if (user.roles.includes(userRoles.INFLUENCER)) {
@@ -85,7 +96,7 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
 
 exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
   const influencer = await Crud.getOne(Influencer, {
-    account_address: req.params.address,
+    account_address: web3.utils.toChecksumAddress(req.params.address),
   });
 
   if (!influencer) {
@@ -130,7 +141,7 @@ exports.uploadInflencerImages = catchAsync(async (req, res, next) => {
 
 exports.approveInfluencer = catchAsync(async (req, res, next) => {
   const influencer = await Crud.getOne(Influencer, {
-    account_address: req.params.address,
+    account_address: web3.utils.toChecksumAddress(req.params.address),
   });
 
   if (!influencer) {
