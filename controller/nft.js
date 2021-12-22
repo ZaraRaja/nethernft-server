@@ -116,7 +116,14 @@ exports.getAllNFTs = catchAsync(async (req, res, next) => {
  */
 
 exports.getOneNft = catchAsync(async (req, res, next) => {
-  const nft = await Crud.getOne(NFT,{ _id: req.params.id }, {});
+  const nft = await Crud.getOne(NFT, { _id: req.params.id }, {});
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
@@ -125,7 +132,6 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
   });
 });
 
- 
 /**
  * PATCH
  * Transfering Ownership of an NFT
