@@ -87,6 +87,7 @@ app.get(
   AuthController.getNonce
 );
 app.post('/api/auth/login', auth.isLoggedIn, AuthController.login);
+app.get('/api/auth/logout', auth.isLoggedIn, AuthController.logout);
 
 // Users Routes
 app.get('/api/users', UserController.getAllUsers);

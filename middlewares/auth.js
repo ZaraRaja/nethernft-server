@@ -19,7 +19,7 @@ exports.authenticate = catchAsync(async (req, res, next) => {
     token = req.cookies.jwt;
   }
 
-  if (!token) {
+  if (!token || token === 'logged_out') {
     return next(
       new AppError(
         responseMessages.UNAUTHENTICATED,
@@ -62,7 +62,7 @@ exports.isLoggedIn = catchAsync(async (req, res, next) => {
     token = req.cookies.jwt;
   }
 
-  if (!token || token === 'null') {
+  if (!token || token === 'logged_out') {
     return next();
   }
 

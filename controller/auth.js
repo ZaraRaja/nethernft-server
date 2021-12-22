@@ -234,3 +234,39 @@ exports.login = catchAsync(async (req, res, next) => {
 
   createSendToken(saved_user, 200, req, res, { sendUser: true });
 });
+
+/**
+ * GET
+ * Logout User
+ */
+
+exports.logout = catchAsync(async (req, res, next) => {
+  if (!req.user) {
+    return next(
+      new AppError(
+        responseMessages.UNAUTHENTICATED,
+        'You are not logged in!',
+        403
+      )
+    );
+  }
+
+  // Set Cookies Options
+  const cookieOptions = {
+    httpOnly: true, // So that Cookie can not be accessed or modified by the client/browser
+    expires: new Date(
+      Date.now() + Number(process.env.JWT_EXPIRES_IN_DAYS) * 24 * 60 * 60 * 1000
+    ),
+    secure: req.secure || req.headers['x-forwarded-proto'] === true,
+  };
+
+  // Send Cookies
+  res.cookie('jwt', 'logged_out', cookieOptions);
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.LOGGED_OUT,
+    message: 'Logged out successfully!',
+    token: 'logged_out',
+  });
+});
