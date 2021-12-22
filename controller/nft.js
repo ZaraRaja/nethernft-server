@@ -3,6 +3,7 @@ const NFT = require('../model/Nft');
 const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
+const web3 = require('../config/web3');
 
 /**
  * POST
@@ -116,7 +117,7 @@ exports.getAllNFTs = catchAsync(async (req, res, next) => {
  */
 
 exports.getOneNft = catchAsync(async (req, res, next) => {
-  const nft = await Crud.getOne(NFT,{ _id: req.params.id }, {});
+  const nft = await Crud.getOne(NFT, { _id: req.params.id }, {});
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
@@ -125,7 +126,6 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
   });
 });
 
- 
 /**
  * PATCH
  * Transfering Ownership of an NFT
@@ -164,5 +164,21 @@ exports.transferOwnership = catchAsync(async (req, res, next) => {
     message: responseMessages.NFT_OWNERSHIP_TRANSFERRED,
     message_description: 'NFT ownership transferred!',
     nft: saved_nft,
+  });
+});
+
+/**
+ * GET
+ * Get all NFTs by address
+ */
+exports.getNftsByAddress = catchAsync(async (req, res, next) => {
+  const all_nfts = await Crud.getList(NFT, {
+    owner: web3.utils.toChecksumAddress(req.params.address),
+  });
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: `All NFTs By Address: ${req.params.address}`,
+    nfts: all_nfts,
   });
 });

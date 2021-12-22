@@ -54,6 +54,7 @@ app.patch(
   auth.authenticate,
   NFTController.transferOwnership
 );
+app.get('/api/nfts/by-address/:address', NFTController.getNftsByAddress);
 
 // Launchpad Routes
 app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
@@ -64,6 +65,8 @@ app.post(
   auth.authenticate,
   InfluencerController.becomeInfluencer
 );
+app.get('/api/influencers/details', InfluencerController.getAllInfluencers);
+
 app.get(
   '/api/influencers/:address',
   InfluencerController.getInfluencerByAddress

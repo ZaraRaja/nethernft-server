@@ -164,3 +164,17 @@ exports.approveInfluencer = catchAsync(async (req, res, next) => {
     influencer: saved_influencer,
   });
 });
+
+/**
+ * GET
+ * Get all Influncer details
+ */
+exports.getAllInfluencers = catchAsync(async (req, res, next) => {
+  const influencers = await Crud.getList(Influencer, {});
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Influencers',
+    influencers,
+  });
+});
