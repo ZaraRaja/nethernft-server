@@ -46,7 +46,6 @@ const UserController = require('./controller/user');
 // NFT Routes
 app.post('/api/nfts/mint', auth.authenticate, NFTController.mint);
 app.patch('/api/nfts/price/:id', auth.authenticate, NFTController.updatePrice);
-app.get('/api/nfts/price/:id', NFTController.getPrice);
 app.get('/api/nfts/by-address/:address', NFTController.getNftsByAddress);
 app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts', NFTController.getAllNFTs);
@@ -62,10 +61,13 @@ app.post(
   InfluencerController.becomeInfluencer
 );
 app.get('/api/influencers/details', InfluencerController.getAllInfluencers);
-
 app.get(
   '/api/influencers/:address',
   InfluencerController.getInfluencerByAddress
+);
+app.get(
+  '/api/influencers/:address/nfts',
+  InfluencerController.getInfluencerWithNfts
 );
 app.post(
   '/api/influencers/upload-images',

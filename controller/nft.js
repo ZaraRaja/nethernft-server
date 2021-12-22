@@ -76,7 +76,7 @@ exports.mint = catchAsync(async (req, res, next) => {
     file_hash,
     file_format,
     metadata_hash,
-    owner: web3.utils.toChecksumAddress(owner),
+    owner,
   });
 
   const saved_nft = await new_nft.save();
@@ -118,8 +118,17 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
       )
     );
   }
+  if (price < 0.1) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'Price should be greater than 0.1 NTR!',
+        400
+      )
+    );
+  }
 
-  const nft = await Crud.getOne(NFT, { _id: req.params.id });
+  const nft = await NFT.findById(req.params.id);
 
   if (!nft) {
     return next(
@@ -141,33 +150,12 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
 
 /**
  * Get
- * Getting the Price of Display.
- */
-
-exports.getPrice = catchAsync(async (req, res, next) => {
-  const nft = await Crud.getOne(NFT, { _id: req.params.id });
-
-  if (!nft) {
-    return next(
-      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
-    );
-  }
-
-  res.status(200).json({
-    status: 'success',
-    message: responseMessages.OK,
-    message_description: `NFT with ID: ${req.params.id}`,
-    nft,
-  });
-});
-
-/**
- * Get
  * Getting All Nfts
  */
 
 exports.getAllNFTs = catchAsync(async (req, res, next) => {
   const nfts = await Crud.getList(NFT, {});
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
@@ -178,11 +166,11 @@ exports.getAllNFTs = catchAsync(async (req, res, next) => {
 
 /**
  * Get
- * Getting One Nfts
+ * Getting One NFT
  */
 
 exports.getOneNft = catchAsync(async (req, res, next) => {
-  const nft = await Crud.getOne(NFT, { _id: req.params.id }, {});
+  const nft = await NFT.findById(req.params.id).populate('influencer');
 
   if (!nft) {
     return next(
@@ -190,22 +178,23 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     );
   }
 
-  const user = await Crud.getOne(Influencer, {
-    account_address: web3.utils.toChecksumAddress(nft.owner),
-  });
-
-  if (!user) {
+  if (nft.influencer.length == 0) {
     return next(
-      new AppError(responseMessages.USER_NOT_FOUND, 'User does not exist!', 404)
+      new AppError(
+        responseMessages.INFLUENCER_NOT_FOUND,
+        'Influencer does not exist!',
+        404
+      )
     );
   }
+
+  const modified_nft = { ...nft._doc, influencer: nft.influencer[0] };
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'NFT Data',
-    nft,
-    user,
+    nft: modified_nft,
   });
 });
 

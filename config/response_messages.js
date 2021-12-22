@@ -20,6 +20,7 @@ module.exports = {
   DB_VALIDATION_ERROR: 'db_validation_error',
   MISSING_REQUIRED_FIELDS: 'missing_required_fields',
   INVALID_VALUE_TYPE: 'invalid_value_type',
+  INVALID_VALUE: 'invalid_value',
   LOGGED_IN: 'logged_in',
   ALREADY_LOGGED_IN: 'already_logged_in',
   LOGGED_OUT: 'logged_out',

@@ -54,8 +54,18 @@ const nftSchema = new mongoose.Schema(
     },
     isDeleted: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true }, // So `res.json()` and other `JSON.stringify()` functions include virtuals
+    toObject: { virtuals: true }, // So `console.log()` and other functions that use `toObject()` include virtuals
+  }
 );
+
+nftSchema.virtual('influencer', {
+  ref: dbCollections.INFLUENCER.model,
+  localField: 'owner',
+  foreignField: 'account_address',
+});
 
 const NFT = mongoose.model(dbCollections.NFT.model, nftSchema);
 
