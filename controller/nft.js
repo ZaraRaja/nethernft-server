@@ -140,14 +140,21 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
  */
 
 exports.buy = catchAsync(async (req, res, next) => {
-  const { _id, seller, buyer } = req.body;
+  const { _id, seller, buyer, transaction_hash } = req.body;
   let { token_price, purchased_amount } = req.body;
 
-  if (!_id || !seller || !buyer || !purchased_amount || !token_price) {
+  if (
+    !_id ||
+    !seller ||
+    !buyer ||
+    !purchased_amount ||
+    !token_price ||
+    !transaction_hash
+  ) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        '_id, seller, buyer, purchases_amount and token_price fields are required',
+        '_id, seller, buyer, purchases_amount, transaction_hash and token_price fields are required',
         400
       )
     );
@@ -194,6 +201,7 @@ exports.buy = catchAsync(async (req, res, next) => {
     seller: web3.utils.toChecksumAddress(seller),
     token_amount: purchased_amount,
     token_price: token_price,
+    transaction_hash,
   });
 
   saved_trx = await trx.save();
