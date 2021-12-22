@@ -32,4 +32,5 @@ module.exports = {
   INCORRECT_NONCE: 'incorrect_nonce',
   INCORRECT_CREDENTIALS: 'incorrect_credentials',
   JWT_ISSUED: 'jwt_issued',
+  HIGH_PURCHASE_AMOUNT: 'high_purchase_amount',
 };

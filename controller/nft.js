@@ -218,7 +218,7 @@ exports.buy = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        '_id, seller, buyer, purchases_amount, transaction_hash and token_price fields are required',
+        '_id, seller, buyer, purchased_amount, transaction_hash and token_price fields are required',
         400
       )
     );
@@ -255,10 +255,19 @@ exports.buy = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (purchased_amount > nft.token_amount - nft.tokens_sold) {
+    return next(
+      new AppError(
+        responseMessages.HIGH_PURCHASE_AMOUNT,
+        'purchased_amount is greater than available amount of tokens!',
+        400
+      )
+    );
+  }
+
   nft.tokens_sold += purchased_amount;
 
   const saved_nft = await nft.save();
-  console.log('Saved nft'.saved_nft);
 
   const trx = new Transaction({
     nft: _id,
