@@ -47,11 +47,7 @@ const UserController = require('./controller/user');
 app.post('/api/nfts/mint', auth.authenticate, NFTController.mint);
 app.patch('/api/nfts/price/:id', auth.authenticate, NFTController.updatePrice);
 app.get('/api/nfts/price/:id', NFTController.getPrice);
-app.patch(
-  '/api/nfts/transfer-ownership',
-  auth.authenticate,
-  NFTController.transferOwnership
-);
+app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts', NFTController.getAllNFTs);
 app.get('/api/nfts/:id', NFTController.getOneNft);
 
