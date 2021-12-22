@@ -1,5 +1,6 @@
 const Crud = require('../services/Crud');
 const NFT = require('../model/Nft');
+const INFLUENCER = require('../model/Influencer')
 const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
@@ -116,12 +117,13 @@ exports.getAllNFTs = catchAsync(async (req, res, next) => {
  */
 
 exports.getOneNft = catchAsync(async (req, res, next) => {
-  const nft = await Crud.getOne(NFT,{ _id: req.params.id }, {});
+  const nft = await Crud.getOne(NFT, { _id: req.params.id }, {});
+  const user = await Crud.getOne(INFLUENCER,{account_address:nft.owner});
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'NFT Data',
-    nft,
+    nft,user
   });
 });
 
@@ -144,10 +146,7 @@ exports.transferOwnership = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await Crud.getOne(NFT, {
-    file_hash,
-    owner,
-  });
+  const nft = await NFT.findOne({ file_hash, owner });
 
   if (!nft) {
     return next(
@@ -158,7 +157,7 @@ exports.transferOwnership = catchAsync(async (req, res, next) => {
   nft.owner = buyer;
 
   const saved_nft = await nft.save();
-
+console.log("Saved nft". saved_nft)
   res.status(200).json({
     status: 'success',
     message: responseMessages.NFT_OWNERSHIP_TRANSFERRED,
