@@ -73,6 +73,12 @@ influencerSchema.virtual('nfts', {
   foreignField: 'owner',
 });
 
+influencerSchema.virtual('user', {
+  ref: dbCollections.USER.model,
+  localField: 'account_address',
+  foreignField: 'account_address',
+});
+
 module.exports = mongoose.model(
   dbCollections.INFLUENCER.model,
   influencerSchema

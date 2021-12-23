@@ -1,11 +1,11 @@
 const Crud = require('../services/Crud');
 const NFT = require('../model/Nft');
-const Influencer = require('../model/Influencer');
 const Transaction = require('../model/Transaction');
 const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
+const User = require('../model/User');
 
 /**
  * POST
@@ -182,13 +182,32 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         responseMessages.INFLUENCER_NOT_FOUND,
-        'Influencer does not exist!',
+        `Influencer belonging to the NFT doesn't exist!`,
         404
       )
     );
   }
 
-  const modified_nft = { ...nft._doc, influencer: nft.influencer[0] };
+  const user = await User.findOne({
+    account_address: web3.utils.toChecksumAddress(
+      nft.influencer[0].account_address
+    ),
+  });
+
+  if (!user) {
+    return next(
+      new AppError(
+        responseMessages.USER_NOT_FOUND,
+        `The User belonging to the Influencer doesn't exist`,
+        404
+      )
+    );
+  }
+
+  const modified_nft = {
+    ...nft._doc,
+    influencer: { ...nft.influencer[0]._doc, user },
+  };
 
   res.status(200).json({
     status: 'success',
@@ -310,7 +329,7 @@ exports.getNftsByAddress = catchAsync(async (req, res, next) => {
  * GET
  * Get Hot NFT
  */
-exports.getHotNft = catchAsync(async (req, res, next) => {
+exports.getHotNfts = catchAsync(async (req, res, next) => {
   const all_nfts = await Crud.getList(NFT, {});
   const all_tranx = await Crud.getList(Transaction, {});
 

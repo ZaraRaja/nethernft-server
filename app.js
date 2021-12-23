@@ -49,8 +49,8 @@ app.patch('/api/nfts/price/:id', auth.authenticate, NFTController.updatePrice);
 app.get('/api/nfts/by-address/:address', NFTController.getNftsByAddress);
 app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts', NFTController.getAllNFTs);
+app.get('/api/nfts/hot', NFTController.getHotNfts);
 app.get('/api/nfts/:id', NFTController.getOneNft);
-app.get('/api/hotnft', NFTController.getHotNft);
 
 // Launchpad Routes
 app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
