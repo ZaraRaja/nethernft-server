@@ -61,6 +61,7 @@ app.post(
   InfluencerController.becomeInfluencer
 );
 app.get('/api/influencers/details', InfluencerController.getAllInfluencers);
+
 app.get(
   '/api/influencers/:address',
   InfluencerController.getInfluencerByAddress
@@ -94,6 +95,11 @@ app.get('/api/auth/logout', auth.isLoggedIn, AuthController.logout);
 // Users Routes
 app.get('/api/users', UserController.getAllUsers);
 app.get('/api/users/:account_address', UserController.getUserByAddress);
+app.get(
+  '/api/users/singleUser#:account_address',
+  UserController.getUserByAddress
+);
+app.patch('/api/users', auth.authenticate, UserController.updateUser);
 
 /**
  * Error Handling

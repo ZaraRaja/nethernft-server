@@ -45,3 +45,43 @@ exports.getUserByAddress = catchAsync(async (req, res, next) => {
     user,
   });
 });
+
+/**
+ * PATCH
+ * Update the user Description and avatar
+ */
+exports.updateUser = catchAsync(async (req, res, next) => {
+  const { short_bio, avatar } = req.body;
+
+  if (!short_bio?.trim() || !avatar?.trim()) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'short bio and avatar are required',
+        400
+      )
+    );
+  }
+
+  req.user.avatar = avatar;
+
+  if (!req.user.roles.includes(userRoles.INFLUENCER)) {
+    return next(
+      new AppError(
+        responseMessages.INFLUENCER_NOT_FOUND,
+        'Influencer does not exist',
+        403
+      )
+    );
+  }
+
+  req.user.influencer.short_bio = req.body.short_bio;
+  await req.user.save();
+  await req.user.influencer.save();
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'Influcencer Descripition updated',
+    user: req.user,
+  });
+});
