@@ -45,3 +45,17 @@ exports.getUserByAddress = catchAsync(async (req, res, next) => {
     user,
   });
 });
+
+/**
+ * GET
+ * Get Me: Logged In User
+ */
+
+exports.getMe = catchAsync(async (req, res, next) => {
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: `Logged in User: ${req.params.account_address}`,
+    user: req.user,
+  });
+});
