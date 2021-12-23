@@ -32,11 +32,18 @@ const sendErrorProd = (err, req, res) => {
   });
 };
 
+// JWT Errors
+const handleJwtError = (err) => {
+  const message = `Invalid credentials: ${err.message}`;
+  return new AppError(responseMessages.JWT_ERROR, message, 401);
+};
+
 //  Cast errors signify that the input was in the wrong format.
 const handleCastErrorDB = (err) => {
   const message = `Invalid ${err.path}: ${err.value}`;
   return new AppError(responseMessages.DB_CAST_ERROR, message, 400);
 };
+
 // handle duplicate field errors
 const handleDuplicateFieldsDB = (err) => {
   // const value = err.errmsg.match(/(["'])(?:(?=(\\?))\2.)*?\1/)[0];
@@ -66,7 +73,9 @@ module.exports = (err, req, res, next) => {
   // if (process.env.NODE_ENV === 'development') {
   //   sendErrorDev(err, req, res);
   // } else if (process.env.NODE_ENV === 'production') {
-  if (err.name === 'CastError') {
+  if (err.name === 'JsonWebTokenError') {
+    err = handleJwtError(err);
+  } else if (err.name === 'CastError') {
     err = handleCastErrorDB(err);
   }
   if (err.code === 11000) {
