@@ -4,27 +4,61 @@ const Schema = mongoose.Schema;
 
 const influencerSchema = new Schema(
   {
-    website_url: String,
-    youtube_channel_url: String,
-    facebook_username: String,
-    twitch_username: String,
-    snapchat_username: String,
-    twitter_username: String,
-    instagram_username: String,
-    // TODO: remove it from here
     account_address: {
       type: String,
       unique: true,
+      required: [true, 'Account address is required!'],
+    },
+    short_bio: {
+      type: String,
+      trim: true,
+      required: [true, 'Short Bio is Required!'],
+    },
+    field: {
+      type: String,
+      trim: true,
+      required: [true, 'Field is Required!'],
+    },
+    cover_image: {
+      type: String,
+      trim: true,
+      required: [true, 'Cover Image is Required!'],
+    },
+    website_url: {
+      type: String,
+      trim: true,
+    },
+    youtube_channel_url: {
+      type: String,
+      trim: true,
+    },
+    facebook_username: {
+      type: String,
+      trim: true,
+    },
+    twitch_username: {
+      type: String,
+      trim: true,
+    },
+    snapchat_username: {
+      type: String,
+      trim: true,
+    },
+    // twitter_username: {
+    //   type: String,
+    //   trim: true,
+    // },
+    // instagram_username: {
+    //   type: String,
+    //   trim: true,
+    // },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+      lowercase: true,
       required: true,
     },
-    name: String,
-    email: String,
-    short_bio: String,
-    field: String,
-    profile_image: Object,
-    cover_image: Object,
-    isDeleted: { type: Boolean, default: false },
-    isApproved: { type: Boolean, default: false },
   },
   {
     toJSON: { virtuals: true }, // So `res.json()` and other `JSON.stringify()` functions include virtuals

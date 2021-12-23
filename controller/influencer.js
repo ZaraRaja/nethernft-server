@@ -12,39 +12,53 @@ const web3 = require('../config/web3');
  * Adding an Influncer
  */
 exports.becomeInfluencer = catchAsync(async (req, res, next) => {
-  const { account_address } = req.body;
+  const {
+    name,
+    email,
+    profile_image,
+    short_bio,
+    field,
+    cover_image,
+    website_url,
+    youtube_channel_url,
+    facebook_username,
+    twitch_username,
+    snapchat_username,
+    twitter_username,
+    instagram_username,
+  } = req.body;
 
-  if (!account_address) {
+  if (
+    !name?.trim() ||
+    !email?.trim() ||
+    !profile_image?.trim() ||
+    !short_bio?.trim() ||
+    !cover_image?.trim() ||
+    !field?.trim()
+  ) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'account_address field is required!',
+        'name, email, profile_image, cover_image, short_bio, and field are required!',
         400
       )
     );
   }
 
-  if (!web3.utils.isAddress(account_address)) {
-    return next(
-      new AppError(
-        responseMessages.INVALID_ACCOUNT_ADDRESS,
-        'Account Address is invalid!',
-        400
-      )
-    );
-  }
-
-  // TODO: replace it with req.user
-  const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(account_address),
-  }).populate(userRoles.INFLUENCER);
-
-  if (user.roles.includes(userRoles.INFLUENCER)) {
-    if (user[userRoles.INFLUENCER].isApproved) {
+  if (req.user.roles.includes(userRoles.INFLUENCER)) {
+    if (req.user[userRoles.INFLUENCER].status === 'approved') {
       return next(
         new AppError(
           responseMessages.ALREADY_INFLUENCER,
           'You are already an Influencer!',
+          403
+        )
+      );
+    } else if (req.user[userRoles.INFLUENCER].status === 'rejected') {
+      return next(
+        new AppError(
+          responseMessages.INFLUENCER_REQUEST_REJECTED,
+          'Your request to become Influencer is rejected!',
           403
         )
       );
@@ -59,23 +73,33 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
     }
   }
 
-  // TODO: validate req.body, don't trust client side
   const new_influencer = new Influencer({
-    ...req.body,
-    isDeleted: false,
-    isApproved: false,
+    account_address: web3.utils.toChecksumAddress(req.user.account_address),
+    short_bio,
+    field,
+    cover_image,
+    website_url,
+    youtube_channel_url,
+    facebook_username,
+    twitch_username,
+    snapchat_username,
+    twitter_username,
+    instagram_username,
   });
 
   const saved_influencer = await new_influencer.save();
 
   // save the reference of saved_influencer in corresponding user document
-  user.roles.push(userRoles.INFLUENCER);
-  user[userRoles.INFLUENCER] = saved_influencer._id;
+  req.user.name = name;
+  req.user.email = email;
+  req.user.profile_image = profile_image;
+  req.user.roles.push(userRoles.INFLUENCER);
+  req.user[userRoles.INFLUENCER] = saved_influencer;
 
   let saved_user;
 
   try {
-    saved_user = await user.save();
+    saved_user = await req.user.save();
   } catch (error) {
     await saved_influencer.remove();
     return next(error);
@@ -156,7 +180,6 @@ exports.uploadInflencerImages = catchAsync(async (req, res, next) => {
     message: responseMessages.IMAGES_UPLOADED,
     message_description: `Influencer images uploaded successfully!`,
     images: {
-      profile_image: req.files['profile_image'][0].path,
       cover_image: req.files['cover_image'][0].path,
     },
   });

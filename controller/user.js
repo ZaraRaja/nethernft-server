@@ -47,29 +47,49 @@ exports.getUserByAddress = catchAsync(async (req, res, next) => {
 });
 
 /**
- * PATCH
- * Update the user Description and avatar
+ * GET
+ * Get Me: Logged In User
  */
-exports.updateUser = catchAsync(async (req, res, next) => {
-  const { avatar } = req.body;
 
-  if (!avatar?.trim()) {
-    return next(
-      new AppError(
-        responseMessages.MISSING_REQUIRED_FIELDS,
-        'avatar are required',
-        400
-      )
-    );
-  }
-
-  req.user.avatar = avatar;
-
-  await req.user.save();
+exports.getMe = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
-    message_description: 'Influcencer Descripition updated',
+    message_description: `Logged in User: ${req.params.account_address}`,
+    user: req.user,
+  });
+});
+
+/*
+ * PATCH
+ * Update the user Description and avatar
+ */
+
+exports.updateUser = catchAsync(async (req, res, next) => {
+  const { profile_image, name, email, username } = req.body;
+
+  if (profile_image?.trim()) {
+    req.user.profile_image = profile_image.trim();
+  }
+
+  if (name?.trim()) {
+    req.user.name = name.trim();
+  }
+
+  if (email?.trim()) {
+    req.user.email = email.trim();
+  }
+
+  if (username?.trim()) {
+    req.user.username = username.trim();
+  }
+
+  await req.user.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'User Updated Successfully!',
     user: req.user,
   });
 });
