@@ -50,6 +50,7 @@ app.get('/api/nfts/by-address/:address', NFTController.getNftsByAddress);
 app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts', NFTController.getAllNFTs);
 app.get('/api/nfts/:id', NFTController.getOneNft);
+app.get('/api/hotnft', NFTController.getHotNft);
 
 // Launchpad Routes
 app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
@@ -95,6 +96,11 @@ app.get('/api/auth/logout', auth.isLoggedIn, AuthController.logout);
 app.get('/api/users', UserController.getAllUsers);
 app.get('/api/users/me', auth.authenticate, UserController.getMe);
 app.get('/api/users/:account_address', UserController.getUserByAddress);
+app.get(
+  '/api/users/singleUser#:account_address',
+  UserController.getUserByAddress
+);
+app.patch('/api/users', auth.authenticate, UserController.updateUser);
 
 /**
  * Error Handling

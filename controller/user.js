@@ -59,3 +59,33 @@ exports.getMe = catchAsync(async (req, res, next) => {
     user: req.user,
   });
 });
+
+/*
+ * PATCH
+ * Update the user Description and avatar
+ */
+
+exports.updateUser = catchAsync(async (req, res, next) => {
+  const { profile_image } = req.body;
+
+  if (!profile_image?.trim()) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Profile Image is required',
+        400
+      )
+    );
+  }
+
+  req.user.avatar = avatar;
+
+  await req.user.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'User Updated Successfully!',
+    user: req.user,
+  });
+});
