@@ -11,6 +11,7 @@ module.exports = {
   ALREADY_INFLUENCER: 'already_influencer',
   INFLUENCER_APPROVED: 'influencer_approved',
   INFLUENCER_ALREADY_APPROVED: 'influencer_already_approved',
+  INFLUENCER_REQUEST_REJECTED: 'influencer_request_rejected',
   INFLUENCER_REQUEST_PENDING: 'influencer_request_pending',
   INFLUENCER_NOT_FOUND: 'influencer_not_found',
   IMAGES_UPLOADED: 'images_uploaded',

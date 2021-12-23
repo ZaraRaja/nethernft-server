@@ -10,13 +10,17 @@ const User = mongoose.Schema({
     unique: true,
     trim: true,
   },
+  name: {
+    type: String,
+    trim: true,
+  },
   account_address: {
     type: String,
     required: true,
     unique: true,
     trim: true,
   },
-  avatar: {
+  profile_image: {
     type: String,
     required: true,
     trim: true,
@@ -36,12 +40,6 @@ const User = mongoose.Schema({
     enum: [userRoles.USER, userRoles.INFLUENCER, userRoles.ADMIN],
     default: [userRoles.USER],
   },
-  following: [
-    {
-      type: ObjectId,
-      ref: dbCollections.INFLUENCER.model,
-    },
-  ],
   [userRoles.INFLUENCER]: {
     type: ObjectId,
     ref: dbCollections.INFLUENCER.model,
