@@ -63,6 +63,10 @@ app.post(
 );
 app.get('/api/influencers', InfluencerController.getAllInfluencers);
 app.get(
+  '/api/influencers/pending',
+  InfluencerController.getAllUserInInfluencer
+);
+app.get(
   '/api/influencers/:address',
   InfluencerController.getInfluencerByAddress
 );
@@ -76,10 +80,10 @@ app.post(
   influencerUpload,
   InfluencerController.uploadInflencerImages
 );
-app.post(
-  '/api/influencers/approve/:address',
+app.patch(
+  '/api/influencers/update-status/:address',
   auth.authenticate,
-  InfluencerController.approveInfluencer
+  InfluencerController.updateStatus
 );
 
 // Auth Routes

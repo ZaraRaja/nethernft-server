@@ -190,7 +190,7 @@ exports.uploadInflencerImages = catchAsync(async (req, res, next) => {
  * Admin approve Influncer
  */
 
-exports.approveInfluencer = catchAsync(async (req, res, next) => {
+exports.updateStatus = catchAsync(async (req, res, next) => {
   const influencer = await Crud.getOne(Influencer, {
     account_address: web3.utils.toChecksumAddress(req.params.address),
   });
@@ -205,7 +205,7 @@ exports.approveInfluencer = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (influencer.isApproved) {
+  if (influencer.status === 'approved') {
     return next(
       new AppError(
         responseMessages.INFLUENCER_ALREADY_APPROVED,
@@ -215,14 +215,27 @@ exports.approveInfluencer = catchAsync(async (req, res, next) => {
     );
   }
 
-  influencer.isApproved = true;
+  if (influencer.status === 'rejected') {
+    return next(
+      new AppError(
+        responseMessages.INFLUENCER_ALREADY_REJECTED,
+        'Influencer account is already rejected!',
+        403
+      )
+    );
+  }
+
+  influencer.status = req.body.status;
 
   const saved_influencer = await influencer.save();
 
   res.status(200).json({
     status: 'success',
-    message: responseMessages.INFLUENCER_APPROVED,
-    message_description: `Influencer is approved successfully!`,
+    message:
+      influencer.status === 'approved'
+        ? responseMessages.INFLUENCER_APPROVED
+        : responseMessages.INFLUENCER_REJECTED,
+    message_description: `Influencer is ${influencer.status} successfully!`,
     influencer: saved_influencer,
   });
 });
@@ -239,5 +252,25 @@ exports.getAllInfluencers = catchAsync(async (req, res, next) => {
     message: responseMessages.OK,
     message_description: 'All Influencers',
     influencers,
+  });
+});
+
+/**
+ * Get
+ * Getting All Influencers in user
+ */
+
+exports.getAllUserInInfluencer = catchAsync(async (req, res, next) => {
+  const influencerUsers = await User.find({ roles: 'influencer' }).populate(
+    'influencer'
+  );
+  const pendingInfluencers = influencerUsers.filter((u) => {
+    return u.influencer.status === 'pending';
+  });
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'Pending Influencers Data',
+    users: pendingInfluencers,
   });
 });

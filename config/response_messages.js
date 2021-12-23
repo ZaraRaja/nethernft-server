@@ -35,4 +35,6 @@ module.exports = {
   JWT_ISSUED: 'jwt_issued',
   JWT_ERROR: 'jwt_error',
   HIGH_PURCHASE_AMOUNT: 'high_purchase_amount',
+  INFLUENCER_ALREADY_REJECTED: 'influencer_already_rejected',
+  INFLUENCER_REJECTED: 'influencer_rejected',
 };
