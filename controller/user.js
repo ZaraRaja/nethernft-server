@@ -66,19 +66,23 @@ exports.getMe = catchAsync(async (req, res, next) => {
  */
 
 exports.updateUser = catchAsync(async (req, res, next) => {
-  const { profile_image } = req.body;
+  const { profile_image, name, email, username } = req.body;
 
-  if (!profile_image?.trim()) {
-    return next(
-      new AppError(
-        responseMessages.MISSING_REQUIRED_FIELDS,
-        'Profile Image is required',
-        400
-      )
-    );
+  if (profile_image?.trim()) {
+    req.user.profile_image = profile_image.trim();
   }
 
-  req.user.avatar = avatar;
+  if (name?.trim()) {
+    req.user.name = name.trim();
+  }
+
+  if (email?.trim()) {
+    req.user.email = email.trim();
+  }
+
+  if (username?.trim()) {
+    req.user.username = username.trim();
+  }
 
   await req.user.save();
 
