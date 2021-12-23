@@ -305,3 +305,37 @@ exports.getNftsByAddress = catchAsync(async (req, res, next) => {
     nfts: all_nfts,
   });
 });
+
+/**
+ * GET
+ * Get Hot NFT
+ */
+exports.getHotNft = catchAsync(async (req, res, next) => {
+  const all_nfts = await Crud.getList(NFT, {});
+  const all_tranx = await Crud.getList(Transaction, {});
+
+  console.log('ALl Nfts', all_nfts.length);
+  console.log('ALl Tranax', all_tranx);
+  var hot_nft = [];
+  var max = 0;
+  var min = 0;
+  var maxnft = [];
+  for (let i = 0; i < all_nfts.length; i++) {
+    hot_nft[i] = await Crud.getCount(Transaction, {
+      nft: all_nfts[i]._id,
+    });
+
+    if (hot_nft[i] > max) {
+      max = hot_nft[i];
+      maxnft = all_nfts[i];
+    }
+  }
+  console.log('Total Count', hot_nft);
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: `Hot NFT`,
+    hotnftcount: max,
+    hotnftdata: maxnft,
+  });
+});

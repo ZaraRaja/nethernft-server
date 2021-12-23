@@ -50,6 +50,7 @@ app.get('/api/nfts/by-address/:address', NFTController.getNftsByAddress);
 app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts', NFTController.getAllNFTs);
 app.get('/api/nfts/:id', NFTController.getOneNft);
+app.get('/api/hotnft', NFTController.getHotNft);
 
 // Launchpad Routes
 app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
