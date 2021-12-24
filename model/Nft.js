@@ -21,11 +21,8 @@ const nftSchema = new mongoose.Schema(
     token_amount: {
       type: Number,
       min: 1,
-    },
-    token_sold: {
-      type: Number,
-      default: 0,
-      min: 0,
+      max: 1,
+      default: 1,
     },
     price: {
       type: Number,

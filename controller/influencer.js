@@ -191,7 +191,7 @@ exports.uploadInflencerImages = catchAsync(async (req, res, next) => {
  */
 
 exports.updateStatus = catchAsync(async (req, res, next) => {
-  const influencer = await Crud.getOne(Influencer, {
+  const influencer = await Influencer.findOne({
     account_address: web3.utils.toChecksumAddress(req.params.address),
   });
 
