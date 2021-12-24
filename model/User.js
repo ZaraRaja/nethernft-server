@@ -37,7 +37,12 @@ const User = mongoose.Schema({
   },
   roles: {
     type: [String],
-    enum: [userRoles.USER, userRoles.INFLUENCER, userRoles.ADMIN],
+    enum: [
+      userRoles.USER,
+      userRoles.INFLUENCER,
+      userRoles.PENDING_INFLUENCER,
+      userRoles.ADMIN,
+    ],
     default: [userRoles.USER],
   },
   [userRoles.INFLUENCER]: {

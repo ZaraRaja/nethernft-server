@@ -19,10 +19,9 @@ exports.mint = catchAsync(async (req, res, next) => {
     token_name,
     file_hash,
     file_format,
-    owner,
     metadata_hash,
   } = req.body;
-  let { price } = req.body;
+  let { price, owner } = req.body;
 
   if (
     !name.trim() ||
@@ -54,13 +53,26 @@ exports.mint = catchAsync(async (req, res, next) => {
       )
     );
   }
-
   if (!web3.utils.isAddress(owner)) {
     return next(
       new AppError(
         responseMessages.INVALID_ACCOUNT_ADDRESS,
         'Account Address is invalid!',
         400
+      )
+    );
+  }
+
+  owner = web3.utils.toChecksumAddress(owner);
+
+  if (
+    owner !== web3.utils.toChecksumAddress(req.user.influencer.account_address)
+  ) {
+    return next(
+      new AppError(
+        responseMessages.ACCOUNT_ADDRESSES_MISMATCH,
+        'Account Addresses do not match!',
+        403
       )
     );
   }
@@ -83,65 +95,6 @@ exports.mint = catchAsync(async (req, res, next) => {
     message: responseMessages.NFT_MINTED,
     message: 'NFT minted successfully!',
     nft: saved_nft,
-  });
-});
-
-/**
- * PATCH
- * Updating Price of Minted NFT
- */
-
-exports.updatePrice = catchAsync(async (req, res, next) => {
-  let { price } = req.body;
-
-  if (!price) {
-    return next(
-      new AppError(
-        responseMessages.MISSING_REQUIRED_FIELDS,
-        'Price is required!',
-        400
-      )
-    );
-  }
-
-  price = Number(price);
-
-  if (isNaN(price)) {
-    return next(
-      new AppError(
-        responseMessages.INVALID_VALUE_TYPE,
-        'Price should be a number!',
-        400
-      )
-    );
-  }
-  if (price < 0.1) {
-    return next(
-      new AppError(
-        responseMessages.INVALID_VALUE,
-        'Price should be greater than 0.1 NTR!',
-        400
-      )
-    );
-  }
-
-  const nft = await NFT.findById(req.params.id);
-
-  if (!nft) {
-    return next(
-      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
-    );
-  }
-
-  nft.price = price;
-
-  const updated_nft = await nft.save();
-
-  res.status(200).json({
-    status: 'success',
-    message: responseMessages.NFT_PRICE_UPDATED,
-    message_description: 'NFT price updated successfully!',
-    nft: updated_nft,
   });
 });
 
@@ -281,23 +234,6 @@ exports.buy = catchAsync(async (req, res, next) => {
     message_description: 'NFT ownership transferred!',
     nft: saved_nft,
     trx: saved_trx,
-  });
-});
-
-/**
- * GET
- * Get all NFTs by address
- */
-exports.getNftsByAddress = catchAsync(async (req, res, next) => {
-  const all_nfts = await Crud.getList(NFT, {
-    owner: web3.utils.toChecksumAddress(req.params.address),
-  });
-
-  res.status(200).json({
-    status: 'success',
-    message: responseMessages.OK,
-    message_description: `All NFTs By Address: ${req.params.address}`,
-    nfts: all_nfts,
   });
 });
 

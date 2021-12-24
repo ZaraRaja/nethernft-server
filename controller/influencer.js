@@ -93,7 +93,7 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
   req.user.name = name;
   req.user.email = email;
   req.user.profile_image = profile_image;
-  req.user.roles.push(userRoles.INFLUENCER);
+  req.user.roles.push(userRoles.PENDING_INFLUENCER);
   req.user[userRoles.INFLUENCER] = saved_influencer;
 
   let saved_user;
@@ -225,8 +225,29 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
     );
   }
 
+  const user = await User.findOne({
+    account_address: web3.utils.toChecksumAddress(influencer.account_address),
+  });
+
+  if (!user) {
+    return next(
+      new AppError(responseMessages.USER_NOT_FOUND, 'User does not exist!', 404)
+    );
+  }
+
+  // Remove pending influencer from User
+  for (let i = 0; i <= user.roles.length; i++) {
+    if (user.roles[i] === userRoles.PENDING_INFLUENCER) {
+      user.roles.splice(i, 1);
+    }
+  }
+
+  if (req.body.status === 'approved') {
+    user.roles.push(userRoles.INFLUENCER);
+  }
   influencer.status = req.body.status;
 
+  await user.save();
   const saved_influencer = await influencer.save();
 
   res.status(200).json({
@@ -246,7 +267,7 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
  */
 exports.getAllInfluencers = catchAsync(async (req, res, next) => {
   const influencers = await Crud.getList(Influencer, {});
-  console.log(res);
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
@@ -260,13 +281,11 @@ exports.getAllInfluencers = catchAsync(async (req, res, next) => {
  * Getting All Influencers in user
  */
 
-exports.getAllUserInInfluencer = catchAsync(async (req, res, next) => {
-  const influencerUsers = await User.find({ roles: 'influencer' }).populate(
-    'influencer'
-  );
-  const pendingInfluencers = influencerUsers.filter((u) => {
-    return u.influencer.status === 'pending';
-  });
+exports.getPendingInfluencers = catchAsync(async (req, res, next) => {
+  const pendingInfluencers = await User.find({
+    roles: userRoles.PENDING_INFLUENCER,
+  }).populate('influencer');
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,

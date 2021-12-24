@@ -37,4 +37,5 @@ module.exports = {
   HIGH_PURCHASE_AMOUNT: 'high_purchase_amount',
   INFLUENCER_ALREADY_REJECTED: 'influencer_already_rejected',
   INFLUENCER_REJECTED: 'influencer_rejected',
+  ACCOUNT_ADDRESSES_MISMATCH: 'account_addresses_mismatch',
 };

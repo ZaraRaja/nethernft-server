@@ -83,3 +83,23 @@ exports.isLoggedIn = catchAsync(async (req, res, next) => {
   res.locals.user = currentUser;
   return next();
 });
+
+exports.authorize = (...allowedRoles) => {
+  return (req, res, next) => {
+    const isAllowed = allowedRoles.some((role) => {
+      return req.user.roles.includes(role);
+    });
+
+    if (!isAllowed) {
+      return next(
+        new AppError(
+          responseMessages.UNAUTHORIZED,
+          'You are not authorized to perform this action!',
+          403
+        )
+      );
+    }
+
+    next();
+  };
+};

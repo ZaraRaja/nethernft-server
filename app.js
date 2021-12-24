@@ -26,7 +26,7 @@ app.use('/uploads', express.static(__dirname + '/uploads'));
 /**
  * App middlwares
  */
-const launchpadUpload = require('./middlewares/launchpad_upload');
+// const launchpadUpload = require('./middlewares/launchpad_upload');
 const influencerUpload = require('./middlewares/influencer_upload');
 const auth = require('./middlewares/auth');
 
@@ -35,36 +35,43 @@ const auth = require('./middlewares/auth');
  */
 const AuthController = require('./controller/auth');
 const NFTController = require('./controller/nft');
-const LaunchpadController = require('./controller/launchpad');
+// const LaunchpadController = require('./controller/launchpad');
 const InfluencerController = require('./controller/influencer');
 const UserController = require('./controller/user');
+const userRoles = require('./config/user_roles');
 
 /**
  * Primary app routes.
  */
 
 // NFT Routes
-app.post('/api/nfts/mint', auth.authenticate, NFTController.mint);
-app.patch('/api/nfts/price/:id', auth.authenticate, NFTController.updatePrice);
-app.get('/api/nfts/by-address/:address', NFTController.getNftsByAddress);
-app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts', NFTController.getAllNFTs);
-app.get('/api/nfts/hot', NFTController.getHotNfts);
+app.post(
+  '/api/nfts/mint',
+  auth.authenticate,
+  auth.authorize(userRoles.INFLUENCER),
+  NFTController.mint
+);
+app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
+app.get('/api/nfts/hot', NFTController.getHotNfts); // TODO: Get list of HOT NFTs not single NFT
 app.get('/api/nfts/:id', NFTController.getOneNft);
 
 // Launchpad Routes
-app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
+// app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
 
 // Influencers Routes
 app.post(
   '/api/influencers',
   auth.authenticate,
+  auth.authorize(userRoles.USER, userRoles.ADMIN),
   InfluencerController.becomeInfluencer
 );
 app.get('/api/influencers', InfluencerController.getAllInfluencers);
 app.get(
   '/api/influencers/pending',
-  InfluencerController.getAllUserInInfluencer
+  auth.authenticate,
+  auth.authorize(userRoles.ADMIN),
+  InfluencerController.getPendingInfluencers
 );
 app.get(
   '/api/influencers/:address',
@@ -77,12 +84,14 @@ app.get(
 app.post(
   '/api/influencers/upload-images',
   auth.authenticate,
+  auth.authorize(userRoles.USER, userRoles.ADMIN),
   influencerUpload,
   InfluencerController.uploadInflencerImages
 );
 app.patch(
   '/api/influencers/update-status/:address',
   auth.authenticate,
+  auth.authorize(userRoles.ADMIN),
   InfluencerController.updateStatus
 );
 
