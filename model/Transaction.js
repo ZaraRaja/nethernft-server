@@ -6,7 +6,6 @@ const transactionSchema = new mongoose.Schema(
     buyer: String,
     seller: String,
     token_price: Number,
-    token_amount: Number,
     transaction_hash: String,
     nft: {
       type: mongoose.SchemaTypes.ObjectId,

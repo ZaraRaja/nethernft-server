@@ -22,13 +22,12 @@ exports.mint = catchAsync(async (req, res, next) => {
     owner,
     metadata_hash,
   } = req.body;
-  let { token_amount, price } = req.body;
+  let { price } = req.body;
 
   if (
     !name.trim() ||
     !description.trim() ||
     !token_name.trim() ||
-    !token_amount ||
     !price ||
     !file_hash.trim() ||
     !file_format.trim() ||
@@ -38,20 +37,19 @@ exports.mint = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'Name, description, token_name, token_amount, price, file_hash, file_format, owner, metadata_hash fields are required!',
+        'Name, description, token_name, price, file_hash, file_format, owner, metadata_hash fields are required!',
         400
       )
     );
   }
 
-  token_amount = Number(token_amount);
   price = Number(price);
 
-  if (isNaN(token_amount) || isNaN(price)) {
+  if (isNaN(price)) {
     return next(
       new AppError(
         responseMessages.INVALID_VALUE_TYPE,
-        'Token Amount and Price should be numbers!',
+        'Price should be numbers!',
         400
       )
     );
@@ -71,7 +69,6 @@ exports.mint = catchAsync(async (req, res, next) => {
     name,
     description,
     token_name,
-    token_amount,
     price,
     file_hash,
     file_format,
@@ -224,20 +221,13 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
 
 exports.buy = catchAsync(async (req, res, next) => {
   const { _id, seller, buyer, transaction_hash } = req.body;
-  let { token_price, purchased_amount } = req.body;
+  let { token_price } = req.body;
 
-  if (
-    !_id ||
-    !seller ||
-    !buyer ||
-    !purchased_amount ||
-    !token_price ||
-    !transaction_hash
-  ) {
+  if (!_id || !seller || !buyer || !token_price || !transaction_hash) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        '_id, seller, buyer, purchased_amount, transaction_hash and token_price fields are required',
+        '_id, seller, buyer, transaction_hash and token_price fields are required',
         400
       )
     );
@@ -254,13 +244,11 @@ exports.buy = catchAsync(async (req, res, next) => {
   }
 
   token_price = Number(token_price);
-  purchased_amount = Number(purchased_amount);
-
-  if (isNaN(token_price) || isNaN(purchased_amount)) {
+  if (isNaN(token_price)) {
     return next(
       new AppError(
         responseMessages.INVALID_VALUE_TYPE,
-        'Token Price and Purchased Amount should be a number!',
+        'Token Price should be a number!',
         400
       )
     );
@@ -274,25 +262,13 @@ exports.buy = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (purchased_amount > nft.token_amount - nft.tokens_sold) {
-    return next(
-      new AppError(
-        responseMessages.HIGH_PURCHASE_AMOUNT,
-        'purchased_amount is greater than available amount of tokens!',
-        400
-      )
-    );
-  }
-
-  nft.tokens_sold += purchased_amount;
-
+  nft.owner = web3.utils.toChecksumAddress(buyer);
   const saved_nft = await nft.save();
 
   const trx = new Transaction({
     nft: _id,
     buyer: web3.utils.toChecksumAddress(buyer),
     seller: web3.utils.toChecksumAddress(seller),
-    token_amount: purchased_amount,
     token_price: token_price,
     transaction_hash,
   });
