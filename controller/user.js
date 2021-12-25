@@ -66,25 +66,47 @@ exports.getMe = catchAsync(async (req, res, next) => {
  */
 
 exports.updateUser = catchAsync(async (req, res, next) => {
-  const { profile_image, name, email, username } = req.body;
+  const {
+    profile_image,
+    name,
+    email,
+    username,
+    field,
+    short_bio,
+    website_url,
+  } = req.body;
 
   if (profile_image?.trim()) {
-    req.user.profile_image = profile_image.trim();
+    req.user.profile_image = profile_image?.trim();
   }
 
   if (name?.trim()) {
-    req.user.name = name.trim();
+    req.user.name = name?.trim();
   }
 
   if (email?.trim()) {
-    req.user.email = email.trim();
+    req.user.email = email?.trim();
   }
 
   if (username?.trim()) {
-    req.user.username = username.trim();
+    req.user.username = username?.trim();
+  }
+
+  if (req.user?.influencer && field?.trim()) {
+    req.user.influencer.field = field?.trim();
+  }
+
+  if (req.user?.influencer && short_bio?.trim()) {
+    req.user.influencer.short_bio = short_bio?.trim();
+  }
+
+  // Optional Fields
+  if (req.user?.influencer && website_url !== undefined) {
+    req.user.influencer.website_url = website_url?.trim();
   }
 
   await req.user.save();
+  await req.user?.influencer?.save();
 
   res.status(200).json({
     status: 'success',

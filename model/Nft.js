@@ -64,6 +64,12 @@ nftSchema.virtual('influencer', {
   foreignField: 'account_address',
 });
 
+nftSchema.virtual('user', {
+  ref: dbCollections.USER.model,
+  localField: 'owner',
+  foreignField: 'account_address',
+});
+
 const NFT = mongoose.model(dbCollections.NFT.model, nftSchema);
 
 module.exports = NFT;
