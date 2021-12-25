@@ -120,7 +120,9 @@ exports.getAllNFTs = catchAsync(async (req, res, next) => {
  */
 
 exports.getOneNft = catchAsync(async (req, res, next) => {
-  const nft = await NFT.findById(req.params.id).populate('influencer');
+  const nft = await NFT.findById(req.params.id)
+    .populate('influencer')
+    .populate('user');
 
   if (!nft) {
     return next(
@@ -128,23 +130,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (nft.influencer.length == 0) {
-    return next(
-      new AppError(
-        responseMessages.INFLUENCER_NOT_FOUND,
-        `Influencer belonging to the NFT doesn't exist!`,
-        404
-      )
-    );
-  }
-
-  const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(
-      nft.influencer[0].account_address
-    ),
-  });
-
-  if (!user) {
+  if (!nft.user) {
     return next(
       new AppError(
         responseMessages.USER_NOT_FOUND,
@@ -156,7 +142,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
 
   const modified_nft = {
     ...nft._doc,
-    influencer: { ...nft.influencer[0]._doc, user },
+    influencer: { ...nft.influencer[0]?._doc, user: { ...nft.user[0]?._doc } },
   };
 
   res.status(200).json({
