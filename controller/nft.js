@@ -334,3 +334,22 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
     nft: saved_nft,
   });
 });
+
+/**
+ * Get
+ * Api for searching nfts
+ */
+
+exports.searchForNFTs = catchAsync(async (req, res, next) => {
+  const searchField = req.query.name;
+  const searchNfts = await NFT.find({
+    name: { $regex: searchField, $options: '$i' },
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.NFT_MINTED,
+    message: 'NFT minted successfully!',
+    searchNfts,
+  });
+});
