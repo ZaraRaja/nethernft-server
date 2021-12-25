@@ -5,7 +5,7 @@ const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
-const User = require('../model/User');
+const nftStatuses = require('../config/nft_statuses');
 
 /**
  * POST
@@ -86,6 +86,7 @@ exports.mint = catchAsync(async (req, res, next) => {
     file_format,
     metadata_hash,
     owner,
+    status: nftStatuses.FOR_SALE,
   });
 
   const saved_nft = await new_nft.save();
@@ -100,16 +101,36 @@ exports.mint = catchAsync(async (req, res, next) => {
 
 /**
  * Get
- * Getting All Nfts
+ * Getting All Nfts For Sale
  */
 
-exports.getAllNFTs = catchAsync(async (req, res, next) => {
-  const nfts = await Crud.getList(NFT, {});
+exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
+  const nfts = await Crud.getList(NFT, { status: nftStatuses.FOR_SALE });
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'All NFTs',
+    nfts,
+  });
+});
+
+/**
+ * Get
+ * Getting All Nfts By Address
+ */
+
+exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
+  const nfts = await Crud.getList(NFT, {
+    owner: web3.utils.toChecksumAddress(req.params.account_address),
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: `All NFTs by ${web3.utils.toChecksumAddress(
+      req.params.account_address
+    )}`,
     nfts,
   });
 });
@@ -201,7 +222,18 @@ exports.buy = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (nft.status !== nftStatuses.FOR_SALE) {
+    return next(
+      new AppError(
+        responseMessages.NFT_NOT_FOR_SALE,
+        'NFT is not for sale!',
+        403
+      )
+    );
+  }
+
   nft.owner = web3.utils.toChecksumAddress(buyer);
+  nft.status = nftStatuses.NOT_FOR_SALE;
   const saved_nft = await nft.save();
 
   const trx = new Transaction({
@@ -254,5 +286,55 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
     message_description: `Hot NFT`,
     hotnftcount: max,
     hotnftdata: maxnft,
+  });
+});
+
+/**
+ * PATCH
+ * Uodate Status of NFT
+ */
+
+exports.updateStatus = catchAsync(async (req, res, next) => {
+  const { status } = req.body;
+  if (status !== nftStatuses.FOR_SALE && status !== nftStatuses.NOT_FOR_SALE) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'Status value is invalid!',
+        400
+      )
+    );
+  }
+
+  const nft = await NFT.findOne({
+    _id: req.params.id,
+    account_address: web3.utils.toChecksumAddress(req.user.account_address),
+  });
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  if (req.body.status === nftStatuses.FOR_SALE) {
+    nft.status = nftStatuses.FOR_SALE;
+  } else if (req.body.status === nftStatuses.NOT_FOR_SALE) {
+    nft.status = nftStatuses.NOT_FOR_SALE;
+  }
+
+  const saved_nft = await nft.save();
+
+  res.status(200).json({
+    status: 'success',
+    message:
+      saved_nft.status === nftStatuses.FOR_SALE
+        ? responseMessages.NFT_LISTED_FOR_SALE
+        : responseMessages.NFT_REMOVED_FROM_SALE,
+    message_description:
+      saved_nft.status === nftStatuses.FOR_SALE
+        ? 'NFT successfully listed for sale!'
+        : 'NFT successfully removed from sale!',
+    nft: saved_nft,
   });
 });

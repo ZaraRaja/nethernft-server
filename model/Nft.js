@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const dbCollections = require('../config/db_collections');
+const nftStatuses = require('../config/nft_statuses');
 const web3 = require('../config/web3');
 
 const nftSchema = new mongoose.Schema(
@@ -41,6 +42,12 @@ const nftSchema = new mongoose.Schema(
       type: String,
       trim: true,
       unique: true,
+    },
+    status: {
+      type: String,
+      trim: true,
+      enum: [nftStatuses.FOR_SALE, nftStatuses.NOT_FOR_SALE],
+      required: [true, 'Please provide NFT status!'],
     },
     owner: {
       type: String,

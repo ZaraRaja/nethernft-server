@@ -38,4 +38,7 @@ module.exports = {
   INFLUENCER_ALREADY_REJECTED: 'influencer_already_rejected',
   INFLUENCER_REJECTED: 'influencer_rejected',
   ACCOUNT_ADDRESSES_MISMATCH: 'account_addresses_mismatch',
+  NFT_NOT_FOR_SALE: 'nft_not_for_sale',
+  NFT_LISTED_FOR_SALE: 'nft_listed_for_sale',
+  NFT_REMOVED_FROM_SALE: 'nft_removed_from_sale',
 };

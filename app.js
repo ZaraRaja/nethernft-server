@@ -45,7 +45,7 @@ const userRoles = require('./config/user_roles');
  */
 
 // NFT Routes
-app.get('/api/nfts', NFTController.getAllNFTs);
+app.get('/api/nfts', NFTController.getForSaleNFTs);
 app.post(
   '/api/nfts/mint',
   auth.authenticate,
@@ -54,6 +54,12 @@ app.post(
 );
 app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts/hot', NFTController.getHotNfts); // TODO: Get list of HOT NFTs not single NFT
+app.patch(
+  '/api/nfts/update-status/:id',
+  auth.authenticate,
+  NFTController.updateStatus
+);
+app.get('/api/nfts/by/:account_address', NFTController.getAllNftsByAddress);
 app.get('/api/nfts/:id', NFTController.getOneNft);
 
 // Launchpad Routes
