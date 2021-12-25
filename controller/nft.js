@@ -105,12 +105,17 @@ exports.mint = catchAsync(async (req, res, next) => {
  */
 
 exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
-  const nfts = await Crud.getList(NFT, { status: nftStatuses.FOR_SALE });
+  const skipValue = req.query.skip || 0;
+  const limitValue = req.query.limit || 10;
+  const nfts = await NFT.find({ status: nftStatuses.FOR_SALE })
+    .skip(skipValue)
+    .limit(limitValue);
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'All NFTs',
+    count: nfts.length,
     nfts,
   });
 });
