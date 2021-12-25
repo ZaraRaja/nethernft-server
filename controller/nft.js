@@ -260,23 +260,28 @@ exports.buy = catchAsync(async (req, res, next) => {
  * Get Hot NFT
  */
 exports.getHotNfts = catchAsync(async (req, res, next) => {
-  var all_nfts = await Crud.getList(NFT, {});
+  var all_nfts = await Crud.getList(NFT, { status: nftStatuses.FOR_SALE });
   var count = 0;
   var arr = [];
   for (let i = 0; i < all_nfts.length; i++) {
     count = await Crud.getCount(Transaction, {
       nft: all_nfts[i]._id,
     });
-    var nft = await NFT.findById(all_nfts[i]._id);
-
-    arr[i] = { nft_id: nft, count: count };
+    var nft = all_nfts[i];
+    arr[i] = { nft, count };
   }
-  console.log('Nfts with count', arr);
+
+  let sorted = arr.sort((a, b) => (a.count < b.count ? 1 : -1));
+  sorted = sorted.slice(0, 4);
+  sorted = sorted.map((doc) => {
+    return doc.nft;
+  });
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: `Hot NFT`,
-    hot_nfts: arr,
+    nfts: sorted,
   });
 });
 
