@@ -46,4 +46,5 @@ module.exports = {
   FOLLOW_SUCCESS: 'follow_success',
   UNFOLLOW_SUCCESS: 'unfollow_success',
   FOLLOW_SELF_NOT_ALLOWED: 'follow_self_not_allowed',
+  INFLUENCER_CANNOT_FOLLOW: 'influencer_cannot_follow',
 };
