@@ -108,6 +108,7 @@ app.get(
 );
 app.get(
   '/api/influencers/:address/followers',
+  auth.authenticate,
   InfluencerController.getFollowersByAddress
 );
 app.get(
@@ -128,6 +129,11 @@ app.get('/api/auth/logout', auth.isLoggedIn, AuthController.logout);
 // Users Routes
 app.get('/api/users', UserController.getAllUsers);
 app.get('/api/users/me', auth.authenticate, UserController.getMe);
+app.get(
+  '/api/users/:account_address/following',
+  auth.authenticate,
+  UserController.getFollowingByAddress
+);
 app.get('/api/users/:account_address', UserController.getUserByAddress);
 app.patch('/api/users', auth.authenticate, UserController.updateUser);
 

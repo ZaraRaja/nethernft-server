@@ -5,6 +5,10 @@ const Crud = require('../services/Crud');
 const responseMessages = require('../config/response_messages');
 const userRoles = require('../config/user_roles');
 const web3 = require('../config/web3');
+const Following = require('../model/Following');
+const Influencer = require('../model/Influencer');
+const NFT = require('../model/Nft');
+const nftStatuses = require('../config/nft_statuses');
 
 /**
  * GET
@@ -113,5 +117,94 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     message: responseMessages.OK,
     message_description: 'User Updated Successfully!',
     user: req.user,
+  });
+});
+
+/**
+ * Get
+ * Getting Following of User By Address
+ */
+exports.getFollowingByAddress = catchAsync(async (req, res, next) => {
+  const following = await Following.aggregate([
+    {
+      $match: {
+        follower_address: web3.utils.toChecksumAddress(
+          req.params.account_address
+        ),
+      },
+    },
+    {
+      $lookup: {
+        from: User.collection.name,
+        localField: 'influencer_address',
+        foreignField: 'account_address',
+        as: 'user',
+      },
+    },
+    {
+      $lookup: {
+        from: Influencer.collection.name,
+        localField: 'influencer_address',
+        foreignField: 'account_address',
+        as: 'influencer',
+      },
+    },
+    {
+      $lookup: {
+        from: NFT.collection.name,
+        as: 'nfts',
+        let: { owner: '$influencer_address' },
+
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$owner', '$$owner'] },
+                  { $eq: ['$status', nftStatuses.FOR_SALE] },
+                ],
+              },
+            },
+          },
+          { $sort: { createdAt: 1 } },
+          { $limit: 3 },
+        ],
+      },
+    },
+    {
+      $unwind: '$user',
+    },
+    {
+      $unwind: '$influencer',
+    },
+    {
+      $project: {
+        _id: 0,
+        user: 1,
+        in_user: {
+          influencer: '$influencer',
+          nfts: '$nfts',
+        },
+      },
+    },
+    {
+      $project: {
+        user: {
+          $mergeObjects: ['$user', '$in_user'],
+        },
+      },
+    },
+    {
+      $replaceRoot: {
+        newRoot: '$user',
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Following',
+    following,
   });
 });
