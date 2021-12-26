@@ -289,9 +289,6 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
       },
     },
     {
-      $limit: 4,
-    },
-    {
       $lookup: {
         from: NFT.collection.name,
         localField: '_id',
@@ -304,6 +301,9 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
     },
     {
       $match: { 'nft.status': 'for_sale' },
+    },
+    {
+      $limit: 4,
     },
     {
       $replaceRoot: {
