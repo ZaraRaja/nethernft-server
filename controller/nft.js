@@ -107,16 +107,25 @@ exports.mint = catchAsync(async (req, res, next) => {
 exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
   const skipValue = req.query.skip || 0;
   const limitValue = req.query.limit || 10;
-  const nfts = await NFT.find({ status: nftStatuses.FOR_SALE })
-    .skip(skipValue)
-    .limit(limitValue);
+  const file_format = req.query.file_format || 'all';
+  const dbQuery = NFT.find({ status: nftStatuses.FOR_SALE });
+  let result = [];
+  if (file_format === 'all') {
+    result = await dbQuery.skip(skipValue).limit(limitValue).exec();
+  } else {
+    result = await dbQuery
+      .where({ file_format: file_format })
+      .skip(skipValue)
+      .limit(limitValue)
+      .exec();
+  }
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'All NFTs',
-    count: nfts.length,
-    nfts,
+    count: result.length,
+    nfts: result,
   });
 });
 
