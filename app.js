@@ -76,6 +76,7 @@ app.post(
   InfluencerController.becomeInfluencer
 );
 app.get('/api/influencers', InfluencerController.getAllInfluencers);
+app.get('/api/influencers/top', InfluencerController.getTopInfluencers);
 app.get(
   '/api/influencers/pending',
   auth.authenticate,
