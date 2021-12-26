@@ -82,14 +82,6 @@ app.get(
   auth.authorize(userRoles.ADMIN),
   InfluencerController.getPendingInfluencers
 );
-app.get(
-  '/api/influencers/:address',
-  InfluencerController.getInfluencerByAddress
-);
-app.get(
-  '/api/influencers/:address/nfts',
-  InfluencerController.getInfluencerWithNfts
-);
 app.post(
   '/api/influencers/upload-images',
   auth.authenticate,
@@ -102,6 +94,14 @@ app.patch(
   auth.authenticate,
   auth.authorize(userRoles.ADMIN),
   InfluencerController.updateStatus
+);
+app.get(
+  '/api/influencers/:address/nfts',
+  InfluencerController.getInfluencerWithNfts
+);
+app.get(
+  '/api/influencers/:address',
+  InfluencerController.getInfluencerByAddress
 );
 
 // Auth Routes
