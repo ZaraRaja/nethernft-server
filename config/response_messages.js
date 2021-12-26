@@ -41,4 +41,9 @@ module.exports = {
   NFT_NOT_FOR_SALE: 'nft_not_for_sale',
   NFT_LISTED_FOR_SALE: 'nft_listed_for_sale',
   NFT_REMOVED_FROM_SALE: 'nft_removed_from_sale',
+  ALREADY_FOLLOWED: 'already_followed',
+  NOT_FOLLOWED: 'not_followed',
+  FOLLOW_SUCCESS: 'follow_success',
+  UNFOLLOW_SUCCESS: 'unfollow_success',
+  FOLLOW_SELF_NOT_ALLOWED: 'follow_self_not_allowed',
 };

@@ -7,6 +7,7 @@ const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
 const Transaction = require('../model/Transaction');
+const Following = require('../model/Following');
 
 /**
  * POST
@@ -369,6 +370,27 @@ exports.getPendingInfluencers = catchAsync(async (req, res, next) => {
  * Follow or unfollow
  */
 exports.follow = catchAsync(async (req, res, next) => {
+  const { command } = req.body;
+  if (!command) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'command field is required!',
+        400
+      )
+    );
+  }
+
+  if (command !== 'follow' && command !== 'unfollow') {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'Invalid value for command!',
+        400
+      )
+    );
+  }
+
   const influencer = await Influencer.findOne({
     account_address: web3.utils.toChecksumAddress(req.params.address),
   });
@@ -383,27 +405,67 @@ exports.follow = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (!influencer.followers) {
-    influncer.followers = [];
-  }
+  // Check if the follower and influencer is same
   if (
-    influencer.followers.includes(
-      web3.utils.toChecksumAddress(req.user.account_address)
-    )
+    web3.utils.toChecksumAddress(req.user.account_address) ===
+    web3.utils.toChecksumAddress(req.params.address)
   ) {
     return next(
       new AppError(
-        responseMessages.ALREADY_FOLLOWED,
-        'Influencer does not exist!',
-        404
+        responseMessages.FOLLOW_SELF_NOT_ALLOWED,
+        'You cannot follow yourself!',
+        403
       )
     );
   }
 
+  // Check if the follow document exist for current follower and Influencer, if true then error
+  const followExist = await Following.findOne({
+    follower_address: web3.utils.toChecksumAddress(req.user.account_address),
+    influencer_address: web3.utils.toChecksumAddress(req.params.address),
+  });
+
+  if (command == 'follow' && followExist) {
+    return next(
+      new AppError(
+        responseMessages.ALREADY_FOLLOWED,
+        'You have already followed the Influncer!',
+        403
+      )
+    );
+  }
+
+  if (command == 'unfollow' && !followExist) {
+    return next(
+      new AppError(
+        responseMessages.NOT_FOLLOWED,
+        'You have not followed the Influncer!',
+        403
+      )
+    );
+  }
+
+  let new_doc;
+
+  if (command == 'follow') {
+    new_doc = new Following({
+      follower_address: web3.utils.toChecksumAddress(req.user.account_address),
+      influencer_address: web3.utils.toChecksumAddress(req.params.address),
+    });
+    await new_doc.save();
+  } else {
+    await followExist.remove();
+  }
+
   res.status(200).json({
     status: 'success',
-    message: responseMessages.OK,
-    message_description: `Followed`,
-    users: pendingInfluencers,
+    message:
+      command === 'follow'
+        ? responseMessages.FOLLOW_SUCCESS
+        : responseMessages.UNFOLLOW_SUCCESS,
+    message_description:
+      command === 'follow'
+        ? 'Successfully Followed!'
+        : 'Successfully Unfollowed!',
   });
 });

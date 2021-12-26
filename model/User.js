@@ -49,9 +49,6 @@ const User = mongoose.Schema({
     type: ObjectId,
     ref: dbCollections.INFLUENCER.model,
   },
-  following: {
-    type: [String],
-  },
 });
 
 module.exports = mongoose.model(dbCollections.USER.model, User);

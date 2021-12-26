@@ -60,9 +60,6 @@ const influencerSchema = new Schema(
       lowercase: true,
       required: true,
     },
-    followers: {
-      type: [String],
-    },
   },
   {
     toJSON: { virtuals: true }, // So `res.json()` and other `JSON.stringify()` functions include virtuals

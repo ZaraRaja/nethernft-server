@@ -4,4 +4,5 @@ module.exports = {
   NFT: { model: 'NFT', coll: 'nfts' },
   LAUNCHPAD: { model: 'Launchpad', coll: 'launchpads' },
   TRANSACTION: { model: 'Transaction', coll: 'transactions' },
+  FOLLOWING: { model: 'Following', coll: 'followings' },
 };
