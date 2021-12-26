@@ -375,8 +375,8 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
  * Api for searching nfts
  */
 
-exports.searchForNFTs = catchAsync(async (req, res, next) => {
-  const searchField = req.query.name;
+exports.search = catchAsync(async (req, res, next) => {
+  const searchField = req.query.q;
   const searchNfts = await NFT.find({
     name: { $regex: searchField, $options: '$i' },
   });
@@ -385,6 +385,6 @@ exports.searchForNFTs = catchAsync(async (req, res, next) => {
     status: 'success',
     message: responseMessages.NFT_MINTED,
     message: 'NFT minted successfully!',
-    searchNfts,
+    nfts: searchNfts,
   });
 });

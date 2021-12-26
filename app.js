@@ -54,7 +54,7 @@ app.post(
   auth.authorize(userRoles.INFLUENCER),
   NFTController.mint
 );
-app.get('/api/nfts/search', NFTController.searchForNFTs);
+app.get('/api/nfts/search', NFTController.search);
 app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts/hot', NFTController.getHotNfts); // TODO: Get list of HOT NFTs not single NFT
 app.patch(
