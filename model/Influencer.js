@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const dbCollections = require('../config/db_collections');
 const Schema = mongoose.Schema;
+const { ObjectId } = mongoose.Schema.Types;
 
 const influencerSchema = new Schema(
   {
@@ -58,6 +59,9 @@ const influencerSchema = new Schema(
       default: 'pending',
       lowercase: true,
       required: true,
+    },
+    followers: {
+      type: [String],
     },
   },
   {

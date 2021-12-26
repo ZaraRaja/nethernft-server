@@ -103,6 +103,12 @@ app.patch(
   auth.authorize(userRoles.ADMIN),
   InfluencerController.updateStatus
 );
+app.patch(
+  '/api/influencers/follow/:address',
+  auth.authenticate,
+  auth.authorize(userRoles.USER),
+  InfluencerController.follow
+);
 
 // Auth Routes
 app.post('/api/auth/signup', auth.isLoggedIn, AuthController.signup);

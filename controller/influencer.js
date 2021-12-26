@@ -293,3 +293,47 @@ exports.getPendingInfluencers = catchAsync(async (req, res, next) => {
     users: pendingInfluencers,
   });
 });
+
+/**
+ * Patch
+ * Follow or unfollow
+ */
+exports.follow = catchAsync(async (req, res, next) => {
+  const influencer = await Influencer.findOne({
+    account_address: web3.utils.toChecksumAddress(req.params.address),
+  });
+
+  if (!influencer) {
+    return next(
+      new AppError(
+        responseMessages.INFLUENCER_NOT_FOUND,
+        'Influencer does not exist!',
+        404
+      )
+    );
+  }
+
+  if (!influencer.followers) {
+    influncer.followers = [];
+  }
+  if (
+    influencer.followers.includes(
+      web3.utils.toChecksumAddress(req.user.account_address)
+    )
+  ) {
+    return next(
+      new AppError(
+        responseMessages.ALREADY_FOLLOWED,
+        'Influencer does not exist!',
+        404
+      )
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: `Followed`,
+    users: pendingInfluencers,
+  });
+});
