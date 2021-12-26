@@ -76,19 +76,12 @@ app.post(
   InfluencerController.becomeInfluencer
 );
 app.get('/api/influencers', InfluencerController.getAllInfluencers);
+app.get('/api/influencers/top', InfluencerController.getTopInfluencers);
 app.get(
   '/api/influencers/pending',
   auth.authenticate,
   auth.authorize(userRoles.ADMIN),
   InfluencerController.getPendingInfluencers
-);
-app.get(
-  '/api/influencers/:address',
-  InfluencerController.getInfluencerByAddress
-);
-app.get(
-  '/api/influencers/:address/nfts',
-  InfluencerController.getInfluencerWithNfts
 );
 app.post(
   '/api/influencers/upload-images',
@@ -108,6 +101,14 @@ app.patch(
   auth.authenticate,
   auth.authorize(userRoles.USER),
   InfluencerController.follow
+);
+app.get(
+  '/api/influencers/:address/nfts',
+  InfluencerController.getInfluencerWithNfts
+);
+app.get(
+  '/api/influencers/:address',
+  InfluencerController.getInfluencerByAddress
 );
 
 // Auth Routes

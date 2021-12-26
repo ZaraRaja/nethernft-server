@@ -6,6 +6,7 @@ const Crud = require('../services/Crud');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
+const Transaction = require('../model/Transaction');
 
 /**
  * POST
@@ -272,6 +273,75 @@ exports.getAllInfluencers = catchAsync(async (req, res, next) => {
     status: 'success',
     message: responseMessages.OK,
     message_description: 'All Influencers',
+    influencers,
+  });
+});
+
+/**
+ * GET
+ * Get Top Influncer details
+ */
+exports.getTopInfluencers = catchAsync(async (req, res, next) => {
+  const influencers = await Transaction.aggregate([
+    {
+      $group: {
+        _id: '$seller',
+        sale_amount: {
+          $sum: '$token_price',
+        },
+        number_of_sales: {
+          $sum: 1,
+        },
+      },
+    },
+    {
+      $sort: {
+        sale_amount: -1,
+        number_of_sales: -1,
+      },
+    },
+    {
+      $limit: 10,
+    },
+    {
+      $lookup: {
+        from: Influencer.collection.name,
+        localField: '_id',
+        foreignField: 'account_address',
+        as: 'influencer',
+      },
+    },
+    {
+      $unwind: '$influencer',
+    },
+    {
+      $lookup: {
+        from: User.collection.name,
+        localField: 'influencer.account_address',
+        foreignField: 'account_address',
+        as: 'user',
+      },
+    },
+    {
+      $unwind: '$user',
+    },
+    {
+      $project: {
+        _id: 0,
+        sale_amount: 1,
+        account_address: '$_id',
+        username: '$user.username',
+        name: '$user.name',
+        profile_image: '$user.profile_image',
+        field: '$influencer.field',
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'Top Influencers',
     influencers,
   });
 });
