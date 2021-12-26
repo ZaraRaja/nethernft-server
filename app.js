@@ -56,7 +56,7 @@ app.post(
 );
 app.get('/api/nfts/search', NFTController.search);
 app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
-app.get('/api/nfts/hot', NFTController.getHotNfts); // TODO: Get list of HOT NFTs not single NFT
+app.get('/api/nfts/hot', NFTController.getHotNfts);
 app.patch(
   '/api/nfts/update-status/:id',
   auth.authenticate,
@@ -105,6 +105,10 @@ app.patch(
 app.get(
   '/api/influencers/:address/nfts',
   InfluencerController.getInfluencerWithNfts
+);
+app.get(
+  '/api/influencers/:address/followers',
+  InfluencerController.getFollowersByAddress
 );
 app.get(
   '/api/influencers/:address',

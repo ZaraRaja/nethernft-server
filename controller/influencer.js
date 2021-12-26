@@ -8,6 +8,7 @@ const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
 const Transaction = require('../model/Transaction');
 const Following = require('../model/Following');
+const nftStatuses = require('../config/nft_statuses');
 
 /**
  * POST
@@ -151,6 +152,7 @@ exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
 exports.getInfluencerWithNfts = catchAsync(async (req, res, next) => {
   const influencer = await Influencer.findOne({
     account_address: web3.utils.toChecksumAddress(req.params.address),
+    status: nftStatuses.FOR_SALE,
   }).populate('nfts');
 
   if (!influencer) {
@@ -349,7 +351,7 @@ exports.getTopInfluencers = catchAsync(async (req, res, next) => {
 
 /**
  * Get
- * Getting All Influencers in user
+ * Getting Pending Influencers
  */
 
 exports.getPendingInfluencers = catchAsync(async (req, res, next) => {
@@ -467,5 +469,48 @@ exports.follow = catchAsync(async (req, res, next) => {
       command === 'follow'
         ? 'Successfully Followed!'
         : 'Successfully Unfollowed!',
+  });
+});
+
+/**
+ * Get
+ * Getting Followers of Influencer By Address
+ */
+exports.getFollowersByAddress = catchAsync(async (req, res, next) => {
+  const followers = await Following.aggregate([
+    {
+      $match: {
+        influencer_address: web3.utils.toChecksumAddress(req.params.address),
+      },
+    },
+    {
+      $lookup: {
+        from: User.collection.name,
+        localField: 'follower_address',
+        foreignField: 'account_address',
+        as: 'follower',
+      },
+    },
+    {
+      $unwind: '$follower',
+    },
+    {
+      $project: {
+        _id: 0,
+        username: '$follower.username',
+        name: '$follower.username',
+        profile_image: '$follower.profile_image',
+        account_address: '$follower.account_address',
+        roles: '$follower.roles',
+        createdAt: 1,
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Followers',
+    followers,
   });
 });
