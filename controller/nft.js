@@ -379,6 +379,7 @@ exports.search = catchAsync(async (req, res, next) => {
   const searchField = req.query.q;
   const searchNfts = await NFT.find({
     name: { $regex: searchField, $options: '$i' },
+    status: nftStatuses.FOR_SALE,
   });
 
   res.status(200).json({
