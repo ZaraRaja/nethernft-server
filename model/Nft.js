@@ -15,9 +15,8 @@ const nftSchema = new mongoose.Schema(
     },
     token_name: {
       type: String,
-      unique: true,
       trim: true,
-      uppercase: true,
+      uppercase: true, // should be unique
     },
     token_amount: {
       type: Number,
@@ -25,23 +24,17 @@ const nftSchema = new mongoose.Schema(
       max: 1,
       default: 1,
     },
-    price: {
+    price_in_ntr: {
       type: Number,
       min: 0.1,
     },
     file_hash: {
       type: String,
-      trim: true,
-      unique: true,
+      trim: true, // should be unique
     },
     file_format: {
       type: String,
       trim: true,
-    },
-    metadata_hash: {
-      type: String,
-      trim: true,
-      unique: true,
     },
     status: {
       type: String,
@@ -55,6 +48,20 @@ const nftSchema = new mongoose.Schema(
       set: (val) => {
         return web3.utils.toChecksumAddress(val);
       },
+    },
+    mint_trx_id: {
+      type: mongoose.SchemaTypes.ObjectId,
+      ref: dbCollections.TRANSACTION.model,
+      required: [true, 'Please provide mint transaction id of NFT!'],
+      unique: true,
+    },
+    transfer_trx_id: {
+      type: String,
+      trim: true, // should be unique
+    },
+    listing_trx_id: {
+      type: String,
+      trim: true, // should be unique
     },
     isDeleted: { type: Boolean, default: false },
   },
