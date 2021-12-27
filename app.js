@@ -54,6 +54,12 @@ app.post(
   auth.authorize(userRoles.INFLUENCER),
   NFTController.mint
 );
+app.get(
+  '/api/nfts/mint/prev_trx/:nft_id',
+  auth.authenticate,
+  auth.authorize(userRoles.INFLUENCER),
+  NFTController.verifyPreviousTrx
+);
 app.get('/api/nfts/search', NFTController.search);
 app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts/hot', NFTController.getHotNfts);

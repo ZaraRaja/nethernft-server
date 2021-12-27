@@ -8,59 +8,140 @@ const web3 = require('../config/web3');
 const nftStatuses = require('../config/nft_statuses');
 
 /**
+ * GET
+ * Verify Previous Mint Transaction For :nft_id
+ */
+
+exports.verifyPreviousTrx = catchAsync(async (req, res, next) => {
+  const { nft_id } = req.params;
+
+  if (!nft_id?.trim() || nft_id === 'null') {
+    return next(
+      new AppError(
+        responseMessages.PENDING_MINT_NOT_FOUND,
+        'Pending mint not found!',
+        404
+      )
+    );
+  }
+
+  const mintTrx = Transaction.findOne({
+    nft: nft_id,
+    trx_type: 'mint',
+    mint_status: 'pending',
+    minted_by: web3.utils.toChecksumAddress(req.user.account_address),
+  }).populate('nft');
+
+  if (!mintTrx) {
+    return next(
+      new AppError(
+        responseMessages.PENDING_MINT_NOT_FOUND,
+        'Pending mint not found!',
+        404
+      )
+    );
+  }
+
+  if (!mintTrx.nft) {
+    return next(
+      new AppError(
+        responseMessages.NFT_FOR_PENDING_MINT_NOT_FOUND,
+        'NFT for pending mint not found!',
+        404
+      )
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.PENDING_MINT_VERIFIED,
+    message: 'There is a pending mint for this NFT!',
+    mintTrx,
+  });
+});
+
+/**
  * POST
  * Minting a New NFT
  */
 
 exports.mint = catchAsync(async (req, res, next) => {
-  const {
-    name,
-    description,
-    token_name,
-    file_hash,
-    file_format,
-    metadata_hash,
-  } = req.body;
-  let { price, owner } = req.body;
+  const { trx_hash_bnb } = req.body;
+  let { fee_paid_in_bnb } = req.body;
 
-  if (
-    !name.trim() ||
-    !description.trim() ||
-    !token_name.trim() ||
-    !price ||
-    !file_hash.trim() ||
-    !file_format.trim() ||
-    !owner.trim() ||
-    !metadata_hash.trim()
-  ) {
+  if (!trx_hash_bnb?.trim() || !fee_paid_in_bnb) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'Name, description, token_name, price, file_hash, file_format, owner, metadata_hash fields are required!',
+        'Transaction hash and Fee paid in BNB are required!',
         400
       )
     );
   }
 
-  price = Number(price);
+  fee_paid_in_bnb = Number(fee_paid_in_bnb);
 
-  if (isNaN(price)) {
+  if (isNaN(fee_paid_in_bnb)) {
     return next(
       new AppError(
         responseMessages.INVALID_VALUE_TYPE,
-        'Price should be numbers!',
+        'Fee paid in BNB should be numbers!',
         400
       )
     );
   }
-  if (!web3.utils.isAddress(owner)) {
+
+  // Verify Transaction Blockchain
+  const trxReciept = await web3.eth.getTransactionReceipt(trx_hash_bnb);
+
+  if (
+    !trxReciept ||
+    (trxReciept && trxReciept.status === false) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.to) !==
+        web3.utils.toChecksumAddress(process.env.ADMIN_ACCOUNT_FOR_BNB_FEE))
+  ) {
     return next(
       new AppError(
-        responseMessages.INVALID_ACCOUNT_ADDRESS,
-        'Account Address is invalid!',
-        400
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of BNB is invalid!',
+        403
       )
     );
+  }
+
+  const prevTrxDoc = await Transaction.findOne({
+    trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+  });
+
+  if (prevTrxDoc) {
+    if (
+      !(
+        prevTrxDoc.trx_type === 'mint' &&
+        prevTrxDoc.mint_status === 'pending' &&
+        web3.utils.toChecksumAddress(req.user.account_address) &&
+        web3.utils.toChecksumAddress(prevTrxDoc.minted_by)
+      )
+    ) {
+      return next(
+        new AppError(
+          responseMessages.TRX_HASH_USED,
+          'Transaction hash of BNB is already used in another transaction!',
+          403
+        )
+      );
+    } else {
+      if (!(prevTrxDoc.nft === nft_id)) {
+        return next(
+          new AppError(
+            responseMessages.TRX_HASH_USED_IN_PENDING_MINT,
+            'Transaction hash of BNB is already used in minting of another NFT!',
+            403
+          )
+        );
+      } else {
+      }
+    }
   }
 
   owner = web3.utils.toChecksumAddress(owner);

@@ -47,4 +47,10 @@ module.exports = {
   UNFOLLOW_SUCCESS: 'unfollow_success',
   FOLLOW_SELF_NOT_ALLOWED: 'follow_self_not_allowed',
   INFLUENCER_CANNOT_FOLLOW: 'influencer_cannot_follow',
+  PENDING_MINT_NOT_FOUND: 'pending_mint_not_found',
+  PENDING_MINT_VERIFIED: 'pending_mint_verified',
+  NFT_FOR_PENDING_MINT_NOT_FOUND: 'nft_for_pending_mint_not_found',
+  INVALID_TRX_HASH: 'invalid_trx_hash',
+  TRX_HASH_USED: 'trx_hash_used',
+  TRX_HASH_USED_IN_PENDING_MINT: 'trx_hash_used_in_pending_mint',
 };
