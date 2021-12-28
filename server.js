@@ -1,7 +1,9 @@
 /**
  * Environment Configurations.
  */
-require('dotenv').config({ path: './config.env' });
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config({ path: './.env' });
+}
 const app = require('./app');
 const mongoose = require('mongoose');
 const PORT = Number(process.env.PORT) || 5000;
