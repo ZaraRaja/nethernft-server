@@ -12,7 +12,7 @@ const nftStatuses = require('../config/nft_statuses');
  * Verify Previous Mint Transaction For :nft_id
  */
 
-exports.verifyPreviousTrx = catchAsync(async (req, res, next) => {
+exports.verifyPreviousMintTrx = catchAsync(async (req, res, next) => {
   const { nft_id } = req.params;
 
   if (!nft_id?.trim() || nft_id === 'null') {
@@ -25,14 +25,14 @@ exports.verifyPreviousTrx = catchAsync(async (req, res, next) => {
     );
   }
 
-  const mintTrx = Transaction.findOne({
+  const trxDoc = await Transaction.findOne({
     nft: nft_id,
     trx_type: 'mint',
     mint_status: 'pending',
     minted_by: web3.utils.toChecksumAddress(req.user.account_address),
   }).populate('nft');
 
-  if (!mintTrx) {
+  if (!trxDoc) {
     return next(
       new AppError(
         responseMessages.PENDING_MINT_NOT_FOUND,
@@ -42,7 +42,7 @@ exports.verifyPreviousTrx = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (!mintTrx.nft) {
+  if (!trxDoc.nft) {
     return next(
       new AppError(
         responseMessages.NFT_FOR_PENDING_MINT_NOT_FOUND,
@@ -56,7 +56,7 @@ exports.verifyPreviousTrx = catchAsync(async (req, res, next) => {
     status: 'success',
     message: responseMessages.PENDING_MINT_VERIFIED,
     message: 'There is a pending mint for this NFT!',
-    mintTrx,
+    trxDoc,
   });
 });
 
@@ -99,7 +99,10 @@ exports.mint = catchAsync(async (req, res, next) => {
     (trxReciept && trxReciept.status === false) ||
     (trxReciept &&
       web3.utils.toChecksumAddress(trxReciept.to) !==
-        web3.utils.toChecksumAddress(process.env.ADMIN_ACCOUNT_FOR_BNB_FEE))
+        web3.utils.toChecksumAddress(process.env.ADMIN_ACCOUNT_FOR_BNB_FEE)) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
   ) {
     return next(
       new AppError(
@@ -119,8 +122,8 @@ exports.mint = catchAsync(async (req, res, next) => {
       !(
         prevTrxDoc.trx_type === 'mint' &&
         prevTrxDoc.mint_status === 'pending' &&
-        web3.utils.toChecksumAddress(req.user.account_address) &&
-        web3.utils.toChecksumAddress(prevTrxDoc.minted_by)
+        web3.utils.toChecksumAddress(req.user.account_address) ===
+          web3.utils.toChecksumAddress(prevTrxDoc.minted_by)
       )
     ) {
       return next(
@@ -131,52 +134,512 @@ exports.mint = catchAsync(async (req, res, next) => {
         )
       );
     } else {
-      if (!(prevTrxDoc.nft === nft_id)) {
+      const nft = await NFT.findById(prevTrxDoc.nft);
+      if (!nft) {
         return next(
           new AppError(
-            responseMessages.TRX_HASH_USED_IN_PENDING_MINT,
-            'Transaction hash of BNB is already used in minting of another NFT!',
-            403
+            responseMessages.NFT_NOT_FOUND,
+            'Transaction hash of BNB is already used in minting of another NFT which is deleted!',
+            404
           )
         );
-      } else {
       }
+
+      res.status(200).json({
+        status: 'success',
+        message: responseMessages.NFT_ID_AND_TRX_DOC,
+        message: 'You have previously paid the transaction fee for this NFT!',
+        nft,
+        trxDoc: prevTrxDoc,
+      });
     }
   }
 
-  owner = web3.utils.toChecksumAddress(owner);
+  const newTrx = new Transaction({
+    trx_type: 'mint',
+    minted_by: web3.utils.toChecksumAddress(req.user.account_address),
+    mint_status: 'pending',
+    trx_hash_bnb,
+    fee_paid_in_bnb,
+  });
+
+  const newNft = new NFT({
+    owner: web3.utils.toChecksumAddress(req.user.account_address),
+    status: nftStatuses.NOT_FOR_SALE,
+    mint_trx_id: newTrx._id,
+    token_amount: 1,
+  });
+
+  newTrx.nft = newNft;
+
+  const saved_newTrx = await newTrx.save();
+  const saved_newNft = await newNft.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.NFT_MINTED,
+    message: 'NFT minted successfully!',
+    nft: saved_newNft,
+    trxDoc: saved_newTrx,
+  });
+});
+
+/**
+ * POST
+ * Complete Mint of NFT
+ */
+exports.completeMint = catchAsync(async (req, res, next) => {
+  const {
+    nft_id,
+    mint_trx_id,
+    name,
+    description,
+    token_name,
+    file_hash,
+    file_format,
+    metadata_hash,
+  } = req.body;
+  let { price_in_ntr } = req.body;
 
   if (
-    owner !== web3.utils.toChecksumAddress(req.user.influencer.account_address)
+    !nft_id.trim() ||
+    !mint_trx_id.trim() ||
+    !name.trim() ||
+    !description.trim() ||
+    !token_name.trim() ||
+    !price_in_ntr ||
+    !file_hash.trim() ||
+    !file_format.trim() ||
+    !metadata_hash.trim()
   ) {
     return next(
       new AppError(
-        responseMessages.ACCOUNT_ADDRESSES_MISMATCH,
-        'Account Addresses do not match!',
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'NFT ID, Mint Trx ID, Name, description, token name, price in NTR, file hash, file format, and metadata hash fields are required!',
+        400
+      )
+    );
+  }
+
+  price_in_ntr = Number(price_in_ntr);
+
+  if (isNaN(price_in_ntr)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Price in NTR should be numbers!',
+        400
+      )
+    );
+  }
+  let duplicate_nft = await NFT.findOne().or([
+    { token_name: token_name.toUpperCase() },
+    { metadata_hash },
+    { file_hash },
+  ]);
+
+  if (duplicate_nft) {
+    return next(
+      new AppError(
+        responseMessages.DUPLICATE_FIELDS,
+        'Token name, meta data hash and file hash should be unique',
         403
       )
     );
   }
 
-  const new_nft = new NFT({
-    name,
-    description,
-    token_name,
-    price,
-    file_hash,
-    file_format,
-    metadata_hash,
+  owner = web3.utils.toChecksumAddress(req.user.account_address);
+
+  const nft = await NFT.findOne({
+    id: nft_id,
+    mint_trx_id,
     owner,
-    status: nftStatuses.FOR_SALE,
   });
 
-  const saved_nft = await new_nft.save();
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  const trxDoc = await Transaction.findOne({
+    _id: mint_trx_id,
+    nft: nft_id,
+    trx_type: 'mint',
+    minted_by: owner,
+  });
+
+  if (!trxDoc) {
+    return next(
+      new AppError(
+        responseMessages.TRX_NOT_FOUND,
+        'Transaction does not exist!',
+        404
+      )
+    );
+  }
+  if (trxDoc.mint_status !== 'pending') {
+    return next(
+      new AppError(
+        responseMessages.NFT_ALREADY_MINTED,
+        'Transaction does not exist!',
+        404
+      )
+    );
+  }
+
+  nft.name = name;
+  nft.description = description;
+  nft.token_name = token_name;
+  nft.price_in_ntr = price_in_ntr;
+  nft.file_hash = file_hash;
+  nft.file_format = file_format;
+  nft.metadata_hash = metadata_hash;
+  nft.owner = owner;
+  nft.status = nftStatuses.FOR_SALE;
+
+  trxDoc.mint_status = 'complete';
+
+  const saved_nft = await nft.save();
+  const saved_trxDoc = await trxDoc.save();
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.NFT_MINTED,
     message: 'NFT minted successfully!',
     nft: saved_nft,
+    trxDoc: saved_trxDoc,
+  });
+});
+
+/**
+ * GET
+ * Verify Previous Transfer Transaction For :nft_id
+ */
+
+exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
+  const { nft_id } = req.params;
+
+  if (!nft_id?.trim() || nft_id === 'null') {
+    return next(
+      new AppError(
+        responseMessages.PENDING_TRANSFER_NOT_FOUND,
+        'Pending transfer transaction not found!',
+        404
+      )
+    );
+  }
+
+  const trxDoc = await Transaction.findOne({
+    nft: nft_id,
+    trx_type: 'transfer',
+    transfer_status: 'pending',
+    buyer: web3.utils.toChecksumAddress(req.user.account_address),
+  }).populate('nft');
+
+  if (!trxDoc) {
+    return next(
+      new AppError(
+        responseMessages.PENDING_TRANSFER_NOT_FOUND,
+        'Pending transfer transaction not found!',
+        404
+      )
+    );
+  }
+
+  if (!trxDoc.nft) {
+    return next(
+      new AppError(
+        responseMessages.NFT_FOR_PENDING_TRANSFER_NOT_FOUND,
+        'NFT for pending transfer not found!',
+        404
+      )
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.PENDING_TRANSFER_VERIFIED,
+    message: 'There is a pending transfer for this NFT!',
+    trxDoc,
+  });
+});
+
+/**
+ * POST
+ * Transfering an NFT
+ */
+
+exports.transfer = catchAsync(async (req, res, next) => {
+  const { trx_hash_bnb, nft_id } = req.body;
+  let { fee_paid_in_bnb } = req.body;
+
+  console.log(req.body);
+
+  if (!nft_id?.trim() || !trx_hash_bnb?.trim() || !fee_paid_in_bnb) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'NFT ID, Transaction hash and Fee paid in BNB are required!',
+        400
+      )
+    );
+  }
+
+  const nft = await NFT.findById(nft_id);
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  if (nft.status !== nftStatuses.FOR_SALE) {
+    return next(
+      new AppError(
+        responseMessages.NFT_NOT_FOR_SALE,
+        'NFT is not listed for sale!',
+        403
+      )
+    );
+  }
+
+  fee_paid_in_bnb = Number(fee_paid_in_bnb);
+
+  if (isNaN(fee_paid_in_bnb)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Fee paid in BNB should be numbers!',
+        400
+      )
+    );
+  }
+
+  // Verify Transaction Blockchain
+  const trxReciept = await web3.eth.getTransactionReceipt(trx_hash_bnb);
+
+  if (
+    !trxReciept ||
+    (trxReciept && trxReciept.status === false) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.to) !==
+        web3.utils.toChecksumAddress(process.env.ADMIN_ACCOUNT_FOR_BNB_FEE)) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of BNB is invalid!',
+        403
+      )
+    );
+  }
+
+  const prevTrxDoc = await Transaction.findOne({
+    trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+  });
+
+  if (prevTrxDoc) {
+    if (
+      !(
+        prevTrxDoc.trx_type === 'transfer' &&
+        prevTrxDoc.transfer_status === 'pending' &&
+        web3.utils.toChecksumAddress(req.user.account_address) ===
+          web3.utils.toChecksumAddress(prevTrxDoc.buyer)
+      )
+    ) {
+      return next(
+        new AppError(
+          responseMessages.TRX_HASH_USED,
+          'Transaction hash of BNB is already used in another transaction!',
+          403
+        )
+      );
+    } else {
+      if (nft._id !== prevTrxDoc.nft) {
+        return next(
+          new AppError(
+            responseMessages.TRX_HASH_USED_IN_PENDING_TRANSFER,
+            'Transaction hash of BNB is used in one of your pending transfer transactions!',
+            403
+          )
+        );
+      }
+
+      res.status(200).json({
+        status: 'success',
+        message: responseMessages.NFT_ID_AND_TRX_DOC,
+        message: 'You have previously paid the transaction fee for this NFT!',
+        nft,
+        trxDoc: prevTrxDoc,
+      });
+    }
+  }
+
+  const newTrx = new Transaction({
+    trx_type: 'transfer',
+    transfer_status: 'pending',
+    buyer: web3.utils.toChecksumAddress(req.user.account_address),
+    seller: web3.utils.toChecksumAddress(nft.owner),
+    trx_hash_bnb,
+    fee_paid_in_bnb,
+    nft: nft._id,
+  });
+
+  const saved_newTrx = await newTrx.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.TRX_HASH_VALID,
+    message: 'You can buy this NFT now!',
+    nft,
+    trxDoc: saved_newTrx,
+  });
+});
+
+/**
+ * PATCH
+ * Completing Transfering of an NFT
+ */
+
+exports.transferComplete = catchAsync(async (req, res, next) => {
+  const { trx_hash_bnb, nft_id, trx_hash_ntr } = req.body;
+  let { price_in_ntr } = req.body;
+
+  console.log(req.body);
+  if (
+    !nft_id?.trim() ||
+    !trx_hash_bnb?.trim() ||
+    !trx_hash_ntr ||
+    !price_in_ntr
+  ) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'NFT ID, Transaction hash of BNB, Transaction hash of NTRs, and Price in NTR are required!',
+        400
+      )
+    );
+  }
+
+  price_in_ntr = Number(price_in_ntr);
+
+  if (isNaN(price_in_ntr)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Price in NTR should be numbers!',
+        400
+      )
+    );
+  }
+
+  const nft = await NFT.findById(nft_id);
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  if (nft.status !== nftStatuses.FOR_SALE) {
+    return next(
+      new AppError(
+        responseMessages.NFT_NOT_FOR_SALE,
+        'NFT is not listed for sale!',
+        403
+      )
+    );
+  }
+
+  const trxDoc = await NFT.findOne({
+    trx_hash_bnb,
+    nft: nft_id,
+    transfer_status: 'pending',
+    buyer: web3.utils.toChecksumAddress(req.user.account_address),
+  });
+
+  if (!trxDoc) {
+    return next(
+      new AppError(
+        responseMessages.TRX_NOT_FOUND,
+        'Transaction does not exist!',
+        404
+      )
+    );
+  }
+
+  if (
+    web3.utils.toChecksumAddress(nft.owner) !==
+    web3.utils.toChecksumAddress(trxDoc.seller)
+  ) {
+    return next(
+      new AppError(
+        responseMessages.NFT_ALREADY_SOLD,
+        'NFT is already sold!',
+        403
+      )
+    );
+  }
+
+  // Verify Transaction Blockchain
+  const trxReciept = await web3.eth.getTransactionReceipt(trx_hash_ntr);
+  console.log(trxReciept);
+
+  if (
+    !trxReciept ||
+    (trxReciept && trxReciept.status === false) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.to) !==
+        web3.utils.toChecksumAddress(process.env.NTR_CONTRACT_ADDRESS)) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of NTR is invalid!',
+        403
+      )
+    );
+  }
+
+  const duplicate = await NFT.findOne({ transfer_trx_id: trxDoc._id });
+
+  if (duplicate) {
+    return next(
+      new AppError(
+        responseMessages.TRANSFER_TRX_USED,
+        'The Transfer Transaction is used in transfer of another NFT!',
+        403
+      )
+    );
+  }
+
+  // Update NFT Document
+  nft.owner = trxDoc.buyer;
+  nft.transfer_trx_id = trxDoc._id;
+  nft.status = nftStatuses.NOT_FOR_SALE;
+  nft.listing_trx_id = null;
+
+  // Update Transaction Document
+  trxDoc.transfer_status = 'complete';
+  trxDoc.price_in_ntr = price_in_ntr;
+  trxDoc.trx_hash_ntr = trx_hash_ntr;
+
+  const saved_trxDoc = await trxDoc.save();
+  const saved_nft = await nft.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.TRANSFER_COMPLETE,
+    message: 'You have successfully bought the NFT!',
+    nft: saved_nft,
+    trxDoc: saved_trxDoc,
   });
 });
 
@@ -218,6 +681,7 @@ exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
 exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
   const nfts = await Crud.getList(NFT, {
     owner: web3.utils.toChecksumAddress(req.params.account_address),
+    status: nftStatuses.FOR_SALE,
   });
 
   res.status(200).json({

@@ -28,6 +28,10 @@ const nftSchema = new mongoose.Schema(
       type: Number,
       min: 0.1,
     },
+    metadata_hash: {
+      type: String,
+      trim: true, // should be unique
+    },
     file_hash: {
       type: String,
       trim: true, // should be unique
