@@ -701,9 +701,10 @@ exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
 exports.getOneNft = catchAsync(async (req, res, next) => {
   const nft = await NFT.findById(req.params.id)
     .populate('influencer')
-    .populate('user');
+    .populate('user')
+    .populate('mint_trx_id');
 
-  if (!nft) {
+  if (!nft || nft.mint_trx_id.mint_status !== 'complete') {
     return next(
       new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
     );
@@ -819,6 +820,11 @@ exports.buy = catchAsync(async (req, res, next) => {
  */
 exports.getHotNfts = catchAsync(async (req, res, next) => {
   const nfts = await Transaction.aggregate([
+    {
+      $match: {
+        trx_type: 'transfer',
+      },
+    },
     {
       $group: {
         _id: '$nft',

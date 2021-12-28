@@ -78,7 +78,6 @@ app.patch(
   NFTController.transferComplete
 );
 app.get('/api/nfts/search', NFTController.search);
-app.patch('/api/nfts/buy', auth.authenticate, NFTController.buy);
 app.get('/api/nfts/hot', NFTController.getHotNfts);
 app.patch(
   '/api/nfts/update-status/:id',
@@ -125,6 +124,7 @@ app.patch(
   auth.authorize(userRoles.USER),
   InfluencerController.follow
 );
+// TODO: Remove it
 app.get(
   '/api/influencers/:address/nfts',
   InfluencerController.getInfluencerWithNfts

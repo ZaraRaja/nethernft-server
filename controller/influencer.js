@@ -287,10 +287,15 @@ exports.getAllInfluencers = catchAsync(async (req, res, next) => {
 exports.getTopInfluencers = catchAsync(async (req, res, next) => {
   const influencers = await Transaction.aggregate([
     {
+      $match: {
+        trx_type: 'transfer',
+      },
+    },
+    {
       $group: {
         _id: '$seller',
         sale_amount: {
-          $sum: '$token_price',
+          $sum: '$price_in_ntr',
         },
         number_of_sales: {
           $sum: 1,
