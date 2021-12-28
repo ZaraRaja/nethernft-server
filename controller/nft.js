@@ -374,8 +374,6 @@ exports.transfer = catchAsync(async (req, res, next) => {
   const { trx_hash_bnb, nft_id } = req.body;
   let { fee_paid_in_bnb } = req.body;
 
-  console.log(req.body);
-
   if (!nft_id?.trim() || !trx_hash_bnb?.trim() || !fee_paid_in_bnb) {
     return next(
       new AppError(
@@ -509,7 +507,6 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
   const { trx_hash_bnb, nft_id, trx_hash_ntr } = req.body;
   let { price_in_ntr } = req.body;
 
-  console.log(req.body);
   if (
     !nft_id?.trim() ||
     !trx_hash_bnb?.trim() ||
@@ -555,7 +552,7 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await NFT.findOne({
+  const trxDoc = await Transaction.findOne({
     trx_hash_bnb,
     nft: nft_id,
     transfer_status: 'pending',
@@ -587,7 +584,6 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
 
   // Verify Transaction Blockchain
   const trxReciept = await web3.eth.getTransactionReceipt(trx_hash_ntr);
-  console.log(trxReciept);
 
   if (
     !trxReciept ||
@@ -679,9 +675,12 @@ exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
  */
 
 exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
-  const nfts = await Crud.getList(NFT, {
+  let nfts = await NFT.find({
     owner: web3.utils.toChecksumAddress(req.params.account_address),
-    status: nftStatuses.FOR_SALE,
+  }).populate('mint_trx_id');
+
+  nfts = nfts.filter((N) => {
+    return N.mint_trx_id.mint_status === 'complete';
   });
 
   res.status(200).json({
