@@ -78,6 +78,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     field,
     short_bio,
     website_url,
+    cover_image,
   } = req.body;
 
   if (profile_image?.trim()) {
@@ -107,6 +108,10 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   // Optional Fields
   if (req.user?.influencer && website_url !== undefined) {
     req.user.influencer.website_url = website_url?.trim();
+  }
+
+  if (req.user?.influencer && cover_image !== undefined) {
+    req.user.influencer.cover_image = cover_image?.trim();
   }
 
   await req.user.save();
