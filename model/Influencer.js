@@ -45,6 +45,10 @@ const influencerSchema = new Schema(
       type: String,
       trim: true,
     },
+    instagram_username: {
+      type: String,
+      trim: true,
+    },
     // twitter_username: {
     //   type: String,
     //   trim: true,
