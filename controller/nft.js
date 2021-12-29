@@ -6,6 +6,7 @@ const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
 const nftStatuses = require('../config/nft_statuses');
+const User = require('../model/User');
 
 /**
  * GET
@@ -648,7 +649,11 @@ exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
   const skipValue = req.query.skip || 0;
   const limitValue = req.query.limit || 10;
   const file_format = req.query.file_format || 'all';
-  const dbQuery = NFT.find({ status: nftStatuses.FOR_SALE });
+  const dbQuery = NFT.find({ status: nftStatuses.FOR_SALE }).populate('user', {
+    account_address: 1,
+    name: 1,
+    profile_image: 1,
+  });
   let result = [];
   if (file_format === 'all') {
     result = await dbQuery.skip(skipValue).limit(limitValue).exec();
@@ -677,7 +682,9 @@ exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
 exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
   let nfts = await NFT.find({
     owner: web3.utils.toChecksumAddress(req.params.account_address),
-  }).populate('mint_trx_id');
+  })
+    .populate('mint_trx_id')
+    .populate('user', { name: 1, account_address: 1, profile_image: 1 });
 
   nfts = nfts.filter((N) => {
     return N.mint_trx_id.mint_status === 'complete';
@@ -860,6 +867,17 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
         newRoot: '$nft',
       },
     },
+    {
+      $lookup: {
+        from: User.collection.name,
+        let: { owner: '$owner' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$account_address', '$$owner'] } } },
+          { $project: { name: 1, account_address: 1, profile_image: 1 } },
+        ],
+        as: 'user',
+      },
+    },
   ]);
 
   res.status(200).json({
@@ -930,7 +948,7 @@ exports.search = catchAsync(async (req, res, next) => {
   const searchNfts = await NFT.find({
     name: { $regex: searchField, $options: '$i' },
     status: nftStatuses.FOR_SALE,
-  });
+  }).populate('user', { name: 1, account_address, profile_image: 1 });
 
   res.status(200).json({
     status: 'success',
