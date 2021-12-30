@@ -745,6 +745,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
   );
   console.log('########result', result);
   modified_nft.mintedByUser = result.username;
+  modified_nft.mintedByAddress = result.account_address;
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
