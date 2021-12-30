@@ -731,6 +731,9 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     ...nft._doc,
     influencer: { ...nft.influencer[0]?._doc, user: { ...nft.user[0]?._doc } },
   };
+  console.log('************************start');
+  console.log('modified', modified_nft);
+  console.log('************************end');
 
   res.status(200).json({
     status: 'success',
