@@ -60,12 +60,12 @@ const nftSchema = new mongoose.Schema(
       unique: true,
     },
     transfer_trx_id: {
-      type: String,
-      trim: true, // should be unique
+      type: mongoose.SchemaTypes.ObjectId,
+      ref: dbCollections.TRANSACTION.model,
     },
     listing_trx_id: {
-      type: String,
-      trim: true, // should be unique
+      type: mongoose.SchemaTypes.ObjectId,
+      ref: dbCollections.TRANSACTION.model,
     },
     isDeleted: { type: Boolean, default: false },
   },
