@@ -735,11 +735,22 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
   console.log('modified', modified_nft);
   console.log('************************end');
 
+  const minted_by = modified_nft.mint_trx_id.minted_by;
+
+  const result = await Crud.getOne(
+    User,
+    { account_address: minted_by },
+    {},
+    {}
+  );
+  console.log('########result', result);
+  modified_nft.mintedByUser = result.username;
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'NFT Data',
     nft: modified_nft,
+    result,
   });
 });
 
