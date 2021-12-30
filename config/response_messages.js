@@ -64,4 +64,8 @@ module.exports = {
   TRX_HASH_VALID: 'trx_hash_valid',
   NFT_ALREADY_SOLD: 'nft_already_sold',
   TRANSFER_COMPLETE: 'transfer_complete',
+  PREVIOUS_LISTING_NOT_FOUND: 'previous_listing_not_found',
+  MINTER_IS_OWNER: 'minter_is_owner',
+  PREVIOUS_LISTING_VERIFIED: 'previous_listing_verified',
+  TRX_HASH_USED_IN_ANOTHER_LISTING: 'trx_hash_used_in_another_listing',
 };
