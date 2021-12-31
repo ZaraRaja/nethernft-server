@@ -615,6 +615,58 @@ exports.transfer = catchAsync(async (req, res, next) => {
 
 /**
  * PATCH
+ * update the nft price
+ */
+exports.updatePrice = catchAsync(async (req, res, next) => {
+  let { price_in_ntr } = req.body;
+  const { nft_id } = req.params;
+
+  if (!price_in_ntr) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Price in NTR is required!',
+        400
+      )
+    );
+  }
+
+  price_in_ntr = Number(price_in_ntr);
+
+  if (isNaN(price_in_ntr)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Price in NTR should be number!',
+        400
+      )
+    );
+  }
+
+  const nft = await NFT.findOne({
+    _id: nft_id,
+    owner: web3.utils.toChecksumAddress(req.user.account_address),
+  });
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  nft.price_in_ntr = price_in_ntr;
+  const savedNft = await nft.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.NFT_PRICE_UPDATED,
+    message_description: 'NFT price is updated',
+    nft: savedNft,
+  });
+});
+
+/**
+ * PATCH
  * Completing Transfering of an NFT
  */
 
