@@ -1052,13 +1052,29 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
   if (
     !nft.listing_trx_id &&
     web3.utils.toChecksumAddress(nft.mint_trx_id.minted_by) ===
-      web3.utils.toChecksumAddress(req.user.account_address)
+      web3.utils.toChecksumAddress(req.user.account_address) &&
+    !nft.transfer_trx_id
   ) {
     return res.status(200).json({
       status: 'success',
       message: responseMessages.MINTER_IS_OWNER,
       message_description: 'NFT minter is the owner!',
     });
+  }
+
+  if (
+    !nft.listing_trx_id &&
+    web3.utils.toChecksumAddress(nft.mint_trx_id.minted_by) ===
+      web3.utils.toChecksumAddress(req.user.account_address) &&
+    nft.transfer_trx_id
+  ) {
+    return next(
+      new AppError(
+        responseMessages.PREVIOUS_LISTING_NOT_FOUND,
+        'Previous Listing transaction not found!',
+        404
+      )
+    );
   }
 
   if (
