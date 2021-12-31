@@ -7,7 +7,7 @@ const web3 = require('../config/web3');
 const nftStatuses = require('../config/nft_statuses');
 const User = require('../model/User');
 const Crud = require('../services/Crud');
-
+const { ObjectId } = require('mongoose').Types;
 /**
  * GET
  * Verify Previous Mint Transaction For :nft_id
@@ -740,7 +740,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     {},
     {}
   );
-  // console.log('########result', result);
+
   modified_nft.mintedByUser = result.username;
   modified_nft.mintedByAddress = result.account_address;
   res.status(200).json({
@@ -1137,12 +1137,38 @@ exports.search = catchAsync(async (req, res, next) => {
  */
 
 exports.getRoadMap = catchAsync(async (req, res, next) => {
-  const getListing = await Crud.getList(Transaction, { nft: req.params.id });
-  console.log('Listing******', getListing);
+  const getListing = await Transaction.aggregate([
+    {
+      $match: {
+        nft: ObjectId(req.params.id),
+      },
+    },
+    {
+      $lookup: {
+        from: User.collection.name,
+        let: {
+          owner:
+            '$trx_type' === 'mint'
+              ? '$minted_by'
+              : '$trx_type' === 'transfer'
+              ? '$buyer'
+              : '$trx_type' === 'listing'
+              ? '$owner'
+              : null,
+        },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$account_address', '$$owner'] } } },
+          { $project: { name: 1, account_address: 1, profile_image: 1 } },
+        ],
+        as: 'user',
+      },
+    },
+  ]);
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.NFT_MINTED,
-    message: 'successfully!',
+    message: 'NFT History',
     getListing,
   });
 });
