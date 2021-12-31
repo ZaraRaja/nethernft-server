@@ -53,6 +53,16 @@ const transactionSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    trx_hash_ntr_company: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
+    trx_hash_ntr_minter: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
     owner: {
       type: String,
       trim: true,

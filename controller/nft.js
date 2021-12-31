@@ -6,6 +6,66 @@ const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
 const nftStatuses = require('../config/nft_statuses');
 const User = require('../model/User');
+const ntrContract = require('../config/ntr_contract');
+const ntrContractAddress = process.env.NTR_CONTRACT_ADDRESS;
+
+async function sendNTR(ntr_amount, to) {
+  const sender = process.env.ADMIN_ACCOUNT_FOR_BNB_FEE;
+  let chainId = 97;
+  if (process.env.NODE_ENV === 'production') {
+    chainId = 56;
+  }
+
+  var count = await web3.eth.getTransactionCount(`${sender}`);
+
+  let decimals = web3.utils.toBN(18);
+  let amount = web3.utils.toBN(ntr_amount);
+  let value = amount.mul(web3.utils.toBN(10).pow(decimals));
+
+  let gasLimit = '';
+  try {
+    gasLimit = await web3.eth.estimateGas({
+      from: `${sender}`,
+      nonce: web3.utils.toHex(count),
+      to: `${ntrContractAddress}`,
+      data: ntrContract.methods.transfer(`${to}`, value).encodeABI(),
+      chainId: web3.utils.toHex(chainId),
+    });
+  } catch (error) {
+    throw error;
+  }
+
+  var trxObj = {
+    from: `${sender}`,
+    nonce: web3.utils.toHex(count),
+    gasPrice: '0x00000002540BE400',
+    gasLimit: gasLimit,
+    to: `${ntrContractAddress}`,
+    value: '0x0',
+    data: ntrContract.methods.transfer(`${to}`, value).encodeABI(),
+    chainId: chainId,
+    common: {
+      customChain: {
+        chainId,
+        networkId: chainId,
+      },
+    },
+  };
+
+  // Sign Transaction
+  const rawTransaction = (
+    await web3.eth.accounts.signTransaction(
+      trxObj,
+      process.env.ADMIN_ACCOUNT_FOR_BNB_FEE_PRIVATE_KEY
+    )
+  ).rawTransaction;
+
+  try {
+    return await web3.eth.sendSignedTransaction(rawTransaction);
+  } catch (error) {
+    throw error;
+  }
+}
 
 /**
  * GET
@@ -534,7 +594,7 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await NFT.findById(nft_id);
+  const nft = await NFT.findById(nft_id).populate('mint_trx_id');
 
   if (!nft) {
     return next(
@@ -616,6 +676,24 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
+  // Send 3% to company wallet
+  const _3Percent = (3 / 100) * price_in_ntr;
+  let trxObj = await sendNTR(
+    _3Percent,
+    process.env.COMPANY_ACCOUNT_FOR_NTR_FEE
+  );
+  trxDoc.trx_hash_ntr_company = trxObj.transactionHash;
+
+  // Send 2% to Minter wallet
+  const _2Percent = (2 / 100) * price_in_ntr;
+  trxObj = await sendNTR(_2Percent, nft.mint_trx_id.minted_by);
+  trxDoc.trx_hash_ntr_minter = trxObj.transactionHash;
+
+  // Send 95% to seller wallet
+  const _95Percent = (95 / 100) * price_in_ntr;
+  trxObj = await sendNTR(_95Percent, trxDoc.seller);
+  trxDoc.trx_hash_ntr = trxObj.transactionHash;
+
   // Update NFT Document
   nft.owner = trxDoc.buyer;
   nft.transfer_trx_id = trxDoc._id;
@@ -625,7 +703,7 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
   // Update Transaction Document
   trxDoc.transfer_status = 'complete';
   trxDoc.price_in_ntr = price_in_ntr;
-  trxDoc.trx_hash_ntr = trx_hash_ntr;
+  // trxDoc.trx_hash_ntr = trx_hash_ntr;
 
   const saved_trxDoc = await trxDoc.save();
   const saved_nft = await nft.save();
