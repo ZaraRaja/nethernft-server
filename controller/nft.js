@@ -1116,3 +1116,19 @@ exports.search = catchAsync(async (req, res, next) => {
     nfts: searchNfts,
   });
 });
+
+/**
+ * Get
+ * Api for road-map of listing
+ */
+
+exports.getRoadMap = catchAsync(async (req, res, next) => {
+  const getListing = await Crud.getList(Transaction, { nft: req.params.id });
+  console.log('Listing******', getListing);
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.NFT_MINTED,
+    message: 'successfully!',
+    getListing,
+  });
+});
