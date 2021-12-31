@@ -472,6 +472,20 @@ exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (
+    web3.utils.toChecksumAddress(trxDoc.nft.owner) !==
+    web3.utils.toChecksumAddress(trxDoc.seller)
+  ) {
+    await trxDoc.remove();
+    return next(
+      new AppError(
+        responseMessages.NFT_FOR_PENDING_TRANSFER_NOT_FOUND,
+        'NFT is already sold!',
+        404
+      )
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.PENDING_TRANSFER_VERIFIED,
