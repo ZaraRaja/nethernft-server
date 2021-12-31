@@ -18,9 +18,7 @@ async function sendNTR(ntr_amount, to) {
 
   var count = await web3.eth.getTransactionCount(`${sender}`);
 
-  let decimals = web3.utils.toBN(18);
-  let amount = web3.utils.toBN(ntr_amount);
-  let value = amount.mul(web3.utils.toBN(10).pow(decimals));
+  let value = web3.utils.toWei(`${ntr_amount}`, 'ether');
 
   let gasLimit = '';
   try {
