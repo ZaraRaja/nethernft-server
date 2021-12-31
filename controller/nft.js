@@ -515,13 +515,14 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
       )
     );
   }
+
   price_in_ntr = Number(price_in_ntr);
 
-  if (!isNan(price_in_ntr)) {
+  if (isNaN(price_in_ntr)) {
     return next(
       new AppError(
         responseMessages.INVALID_VALUE_TYPE,
-        'Price in NTR should be numbers!',
+        'Price in NTR should be number!',
         400
       )
     );
