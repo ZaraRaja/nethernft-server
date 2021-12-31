@@ -6,6 +6,7 @@ const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
 const nftStatuses = require('../config/nft_statuses');
 const User = require('../model/User');
+const Crud = require('../services/Crud');
 
 /**
  * GET
