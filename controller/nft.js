@@ -930,6 +930,28 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     influencer: { ...nft.influencer[0]?._doc, user: { ...nft.user[0]?._doc } },
   };
 
+  const minted_by = modified_nft.mint_trx_id.minted_by;
+
+  if (
+    web3.utils.toChecksumAddress(minted_by) !==
+    web3.utils.toChecksumAddress(nft.user[0].account_address)
+  ) {
+    const result = await User.findOne(
+      {
+        account_address: minted_by,
+      },
+      { username: 1, account_address: 1, profile_image: 1 }
+    );
+
+    modified_nft.minted_by = result;
+  } else {
+    modified_nft.minted_by = {
+      username: nft.user[0].username,
+      account_address: nft.user[0].account_address,
+      profile_image: nft.user[0].profile_image,
+    };
+  }
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
