@@ -79,11 +79,17 @@ app.patch(
 );
 app.get('/api/nfts/search', NFTController.search);
 app.get('/api/nfts/hot', NFTController.getHotNfts);
-app.patch(
-  '/api/nfts/update-status/:id',
+app.get(
+  '/api/nfts/update-status/prev_trx/:nft_id',
   auth.authenticate,
-  NFTController.updateStatus
+  NFTController.verifyPreviousListingTrx
 );
+app.post(
+  '/api/nfts/update-status',
+  auth.authenticate,
+  NFTController.updateSaleStatus
+);
+
 app.get('/api/nfts/by/:account_address', NFTController.getAllNftsByAddress);
 app.get('/api/nfts/:id', NFTController.getOneNft);
 

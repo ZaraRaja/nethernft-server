@@ -38,6 +38,11 @@ const handleJwtError = (err) => {
   return new AppError(responseMessages.JWT_ERROR, message, 401);
 };
 
+const handleJwtTokenExpireError = (err) => {
+  const message = `Login expired! Please Login again.`;
+  return new AppError(responseMessages.JWT_ERROR, message, 401);
+};
+
 //  Cast errors signify that the input was in the wrong format.
 const handleCastErrorDB = (err) => {
   const message = `Invalid ${err.path}: ${err.value}`;
@@ -75,6 +80,8 @@ module.exports = (err, req, res, next) => {
   // } else if (process.env.NODE_ENV === 'production') {
   if (err.name === 'JsonWebTokenError') {
     err = handleJwtError(err);
+  } else if (err.name === 'TokenExpiredError') {
+    err = handleJwtTokenExpireError(err);
   } else if (err.name === 'CastError') {
     err = handleCastErrorDB(err);
   }

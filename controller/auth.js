@@ -61,9 +61,9 @@ exports.signup = catchAsync(async (req, res, next) => {
     );
   }
 
-  const { account_address, username, email, profile_image } = req.body;
+  const { account_address, username, name, email, profile_image } = req.body;
 
-  if (!account_address || !username || !email || !profile_image) {
+  if (!account_address || !username || !name || !email || !profile_image) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
@@ -86,7 +86,7 @@ exports.signup = catchAsync(async (req, res, next) => {
   const new_user = new User({
     account_address: web3.utils.toChecksumAddress(account_address),
     username,
-    name: username,
+    name,
     email,
     profile_image: `uploads/profiles/${profile_image}`,
     nonce: await getNonce(),

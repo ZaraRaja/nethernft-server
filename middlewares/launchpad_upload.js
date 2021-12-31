@@ -4,7 +4,6 @@ const path = require('path');
 const diskStorage = multer.diskStorage({
   destination: './uploads/launchpad',
   filename: (req, file, cb) => {
-    console.log(file);
     cb(null, Date.now() + path.extname(file.originalname));
   },
 });
