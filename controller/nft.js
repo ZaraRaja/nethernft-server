@@ -67,6 +67,61 @@ async function sendNTR(ntr_amount, to) {
   }
 }
 
+async function sendBNB(bnb_amount, to) {
+  const sender = process.env.ADMIN_ACCOUNT_FOR_BNB_FEE;
+  let chainId = 97;
+  if (process.env.NODE_ENV === 'production') {
+    chainId = 56;
+  }
+
+  var count = await web3.eth.getTransactionCount(`${sender}`);
+
+  let value = web3.utils.toWei(`${bnb_amount}`, 'ether');
+
+  let gasLimit = '';
+  try {
+    gasLimit = await web3.eth.estimateGas({
+      from: `${sender}`,
+      nonce: web3.utils.toHex(count),
+      to: `${to}`,
+      value: web3.utils.toHex(value),
+      chainId: web3.utils.toHex(chainId),
+    });
+  } catch (error) {
+    throw error;
+  }
+
+  var trxObj = {
+    from: `${sender}`,
+    nonce: web3.utils.toHex(count),
+    gasPrice: '0x00000002540BE400',
+    gasLimit: gasLimit,
+    to: `${to}`,
+    value: web3.utils.toHex(value),
+    chainId: chainId,
+    common: {
+      customChain: {
+        chainId,
+        networkId: chainId,
+      },
+    },
+  };
+
+  // Sign Transaction
+  const rawTransaction = (
+    await web3.eth.accounts.signTransaction(
+      trxObj,
+      process.env.ADMIN_ACCOUNT_FOR_BNB_FEE_PRIVATE_KEY
+    )
+  ).rawTransaction;
+
+  try {
+    return await web3.eth.sendSignedTransaction(rawTransaction);
+  } catch (error) {
+    throw error;
+  }
+}
+
 /**
  * GET
  * Verify Previous Mint Transaction For :nft_id
@@ -707,6 +762,20 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
 
   const saved_trxDoc = await trxDoc.save();
   const saved_nft = await nft.save();
+
+  // Get Admin Account BNB Balance
+  const balance = web3.utils.fromWei(
+    `${await web3.eth.getBalance(process.env.ADMIN_ACCOUNT_FOR_BNB_FEE)}`,
+    'ether'
+  );
+
+  if (balance > 0.5) {
+    try {
+      await sendBNB(balance - 0.5, process.env.COMPANY_ACCOUNT_FOR_NTR_FEE);
+    } catch (error) {
+      throw error;
+    }
+  }
 
   res.status(200).json({
     status: 'success',
