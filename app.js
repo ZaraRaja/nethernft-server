@@ -94,10 +94,9 @@ app.post(
   auth.authenticate,
   NFTController.updateSaleStatus
 );
-
+app.get('/api/nfts/roadmap/:id', NFTController.getRoadMap);
 app.get('/api/nfts/by/:account_address', NFTController.getAllNftsByAddress);
 app.get('/api/nfts/:id', NFTController.getOneNft);
-app.get('/api/nfts/road-map/:id', NFTController.getRoadMap);
 // Launchpad Routes
 // app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
 

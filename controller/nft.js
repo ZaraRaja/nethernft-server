@@ -6,6 +6,7 @@ const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
 const nftStatuses = require('../config/nft_statuses');
 const User = require('../model/User');
+const { ObjectId } = require('mongoose').Types;
 const ntrContract = require('../config/ntr_contract');
 const ntrContractAddress = process.env.NTR_CONTRACT_ADDRESS;
 
@@ -1358,31 +1359,63 @@ exports.search = catchAsync(async (req, res, next) => {
  */
 
 exports.getRoadMap = catchAsync(async (req, res, next) => {
-  const getListing = await Transaction.aggregate([
+  const roadmap = await Transaction.aggregate([
     {
       $match: {
         nft: ObjectId(req.params.id),
+        $expr: {
+          $or: [
+            {
+              $and: [
+                { $eq: ['$trx_type', 'mint'] },
+                { $eq: ['$mint_status', 'complete'] },
+              ],
+            },
+            {
+              $and: [
+                { $eq: ['$trx_type', 'transfer'] },
+                { $eq: ['$transfer_status', 'complete'] },
+              ],
+            },
+            { $eq: ['$trx_type', 'listing'] },
+          ],
+        },
       },
     },
     {
       $lookup: {
         from: User.collection.name,
         let: {
-          owner:
-            '$trx_type' === 'mint'
-              ? '$minted_by'
-              : '$trx_type' === 'transfer'
-              ? '$buyer'
-              : '$trx_type' === 'listing'
-              ? '$owner'
-              : null,
+          owner: '$owner',
+          minted_by: '$minted_by',
+          buyer: '$buyer',
         },
         pipeline: [
-          { $match: { $expr: { $eq: ['$account_address', '$$owner'] } } },
-          { $project: { name: 1, account_address: 1, profile_image: 1 } },
+          {
+            $match: {
+              $expr: {
+                $or: [
+                  { $eq: ['$account_address', '$$owner'] },
+                  { $eq: ['$account_address', '$$minted_by'] },
+                  { $eq: ['$account_address', '$$buyer'] },
+                ],
+              },
+            },
+          },
+          {
+            $project: {
+              name: 1,
+              username: 1,
+              account_address: 1,
+              profile_image: 1,
+            },
+          },
         ],
         as: 'user',
       },
+    },
+    {
+      $unwind: '$user',
     },
   ]);
 
@@ -1390,6 +1423,7 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
     status: 'success',
     message: responseMessages.NFT_MINTED,
     message: 'NFT History',
-    getListing,
+    count: roadmap.length,
+    roadmap,
   });
 });
