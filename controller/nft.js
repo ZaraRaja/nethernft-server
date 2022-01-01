@@ -6,8 +6,120 @@ const AppError = require('../utils/AppError');
 const web3 = require('../config/web3');
 const nftStatuses = require('../config/nft_statuses');
 const User = require('../model/User');
-const Crud = require('../services/Crud');
-const { ObjectId } = require('mongoose').Types;
+const ntrContract = require('../config/ntr_contract');
+const ntrContractAddress = process.env.NTR_CONTRACT_ADDRESS;
+
+async function sendNTR(ntr_amount, to) {
+  const sender = process.env.ADMIN_ACCOUNT_FOR_BNB_FEE;
+  let chainId = 97;
+  if (process.env.NODE_ENV === 'production') {
+    chainId = 56;
+  }
+
+  var count = await web3.eth.getTransactionCount(`${sender}`);
+
+  let value = web3.utils.toWei(`${ntr_amount}`, 'ether');
+
+  let gasLimit = '';
+  try {
+    gasLimit = await web3.eth.estimateGas({
+      from: `${sender}`,
+      nonce: web3.utils.toHex(count),
+      to: `${ntrContractAddress}`,
+      data: ntrContract.methods.transfer(`${to}`, value).encodeABI(),
+      chainId: web3.utils.toHex(chainId),
+    });
+  } catch (error) {
+    throw error;
+  }
+
+  var trxObj = {
+    from: `${sender}`,
+    nonce: web3.utils.toHex(count),
+    gasPrice: '0x00000002540BE400',
+    gasLimit: gasLimit,
+    to: `${ntrContractAddress}`,
+    value: '0x0',
+    data: ntrContract.methods.transfer(`${to}`, value).encodeABI(),
+    chainId: chainId,
+    common: {
+      customChain: {
+        chainId,
+        networkId: chainId,
+      },
+    },
+  };
+
+  // Sign Transaction
+  const rawTransaction = (
+    await web3.eth.accounts.signTransaction(
+      trxObj,
+      process.env.ADMIN_ACCOUNT_FOR_BNB_FEE_PRIVATE_KEY
+    )
+  ).rawTransaction;
+
+  try {
+    return await web3.eth.sendSignedTransaction(rawTransaction);
+  } catch (error) {
+    throw error;
+  }
+}
+
+async function sendBNB(bnb_amount, to) {
+  const sender = process.env.ADMIN_ACCOUNT_FOR_BNB_FEE;
+  let chainId = 97;
+  if (process.env.NODE_ENV === 'production') {
+    chainId = 56;
+  }
+
+  var count = await web3.eth.getTransactionCount(`${sender}`);
+
+  let value = web3.utils.toWei(`${bnb_amount}`, 'ether');
+
+  let gasLimit = '';
+  try {
+    gasLimit = await web3.eth.estimateGas({
+      from: `${sender}`,
+      nonce: web3.utils.toHex(count),
+      to: `${to}`,
+      value: web3.utils.toHex(value),
+      chainId: web3.utils.toHex(chainId),
+    });
+  } catch (error) {
+    throw error;
+  }
+
+  var trxObj = {
+    from: `${sender}`,
+    nonce: web3.utils.toHex(count),
+    gasPrice: '0x00000002540BE400',
+    gasLimit: gasLimit,
+    to: `${to}`,
+    value: web3.utils.toHex(value),
+    chainId: chainId,
+    common: {
+      customChain: {
+        chainId,
+        networkId: chainId,
+      },
+    },
+  };
+
+  // Sign Transaction
+  const rawTransaction = (
+    await web3.eth.accounts.signTransaction(
+      trxObj,
+      process.env.ADMIN_ACCOUNT_FOR_BNB_FEE_PRIVATE_KEY
+    )
+  ).rawTransaction;
+
+  try {
+    return await web3.eth.sendSignedTransaction(rawTransaction);
+  } catch (error) {
+    throw error;
+  }
+}
+
 /**
  * GET
  * Verify Previous Mint Transaction For :nft_id
@@ -358,6 +470,20 @@ exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (
+    web3.utils.toChecksumAddress(trxDoc.nft.owner) !==
+    web3.utils.toChecksumAddress(trxDoc.seller)
+  ) {
+    await trxDoc.remove();
+    return next(
+      new AppError(
+        responseMessages.NFT_FOR_PENDING_TRANSFER_NOT_FOUND,
+        'NFT is already sold!',
+        404
+      )
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.PENDING_TRANSFER_VERIFIED,
@@ -501,6 +627,58 @@ exports.transfer = catchAsync(async (req, res, next) => {
 
 /**
  * PATCH
+ * update the nft price
+ */
+exports.updatePrice = catchAsync(async (req, res, next) => {
+  let { price_in_ntr } = req.body;
+  const { nft_id } = req.params;
+
+  if (!price_in_ntr) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Price in NTR is required!',
+        400
+      )
+    );
+  }
+
+  price_in_ntr = Number(price_in_ntr);
+
+  if (isNaN(price_in_ntr)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Price in NTR should be number!',
+        400
+      )
+    );
+  }
+
+  const nft = await NFT.findOne({
+    _id: nft_id,
+    owner: web3.utils.toChecksumAddress(req.user.account_address),
+  });
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  nft.price_in_ntr = price_in_ntr;
+  const savedNft = await nft.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.NFT_PRICE_UPDATED,
+    message_description: 'NFT price is updated',
+    nft: savedNft,
+  });
+});
+
+/**
+ * PATCH
  * Completing Transfering of an NFT
  */
 
@@ -535,7 +713,7 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await NFT.findById(nft_id);
+  const nft = await NFT.findById(nft_id).populate('mint_trx_id');
 
   if (!nft) {
     return next(
@@ -617,6 +795,24 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
+  // Send 3% to company wallet
+  const _3Percent = (3 / 100) * price_in_ntr;
+  let trxObj = await sendNTR(
+    _3Percent,
+    process.env.COMPANY_ACCOUNT_FOR_NTR_FEE
+  );
+  trxDoc.trx_hash_ntr_company = trxObj.transactionHash;
+
+  // Send 2% to Minter wallet
+  const _2Percent = (2 / 100) * price_in_ntr;
+  trxObj = await sendNTR(_2Percent, nft.mint_trx_id.minted_by);
+  trxDoc.trx_hash_ntr_minter = trxObj.transactionHash;
+
+  // Send 95% to seller wallet
+  const _95Percent = (95 / 100) * price_in_ntr;
+  trxObj = await sendNTR(_95Percent, trxDoc.seller);
+  trxDoc.trx_hash_ntr = trxObj.transactionHash;
+
   // Update NFT Document
   nft.owner = trxDoc.buyer;
   nft.transfer_trx_id = trxDoc._id;
@@ -626,10 +822,24 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
   // Update Transaction Document
   trxDoc.transfer_status = 'complete';
   trxDoc.price_in_ntr = price_in_ntr;
-  trxDoc.trx_hash_ntr = trx_hash_ntr;
+  // trxDoc.trx_hash_ntr = trx_hash_ntr;
 
   const saved_trxDoc = await trxDoc.save();
   const saved_nft = await nft.save();
+
+  // Get Admin Account BNB Balance
+  const balance = web3.utils.fromWei(
+    `${await web3.eth.getBalance(process.env.ADMIN_ACCOUNT_FOR_BNB_FEE)}`,
+    'ether'
+  );
+
+  if (balance > 0.5) {
+    try {
+      await sendBNB(balance - 0.5, process.env.COMPANY_ACCOUNT_FOR_NTR_FEE);
+    } catch (error) {
+      throw error;
+    }
+  }
 
   res.status(200).json({
     status: 'success',
@@ -734,15 +944,26 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
 
   const minted_by = modified_nft.mint_trx_id.minted_by;
 
-  const result = await Crud.getOne(
-    User,
-    { account_address: minted_by },
-    {},
-    {}
-  );
+  if (
+    web3.utils.toChecksumAddress(minted_by) !==
+    web3.utils.toChecksumAddress(nft.user[0].account_address)
+  ) {
+    const result = await User.findOne(
+      {
+        account_address: minted_by,
+      },
+      { username: 1, account_address: 1, profile_image: 1 }
+    );
 
-  modified_nft.mintedByUser = result.username;
-  modified_nft.mintedByAddress = result.account_address;
+    modified_nft.minted_by = result;
+  } else {
+    modified_nft.minted_by = {
+      username: nft.user[0].username,
+      account_address: nft.user[0].account_address,
+      profile_image: nft.user[0].profile_image,
+    };
+  }
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,

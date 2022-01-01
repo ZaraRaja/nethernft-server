@@ -48,6 +48,11 @@ const userRoles = require('./config/user_roles');
 
 // NFT Routes
 app.get('/api/nfts', NFTController.getForSaleNFTs);
+app.patch(
+  '/api/nfts/update-price/:nft_id',
+  auth.authenticate,
+  NFTController.updatePrice
+);
 app.get(
   '/api/nfts/mint/prev_trx/:nft_id',
   auth.authenticate,
