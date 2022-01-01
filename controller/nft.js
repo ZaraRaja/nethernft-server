@@ -307,6 +307,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     nft_id,
     mint_trx_id,
     name,
+    category,
     description,
     token_name,
     file_hash,
@@ -324,7 +325,8 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     !price_in_ntr ||
     !file_hash.trim() ||
     !file_format.trim() ||
-    !metadata_hash.trim()
+    !metadata_hash.trim() ||
+    !category.trim()
   ) {
     return next(
       new AppError(
@@ -405,6 +407,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
   nft.name = name;
   nft.description = description;
   nft.token_name = token_name;
+  nft.category = category;
   nft.price_in_ntr = price_in_ntr;
   nft.file_hash = file_hash;
   nft.file_format = file_format;
