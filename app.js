@@ -3,7 +3,7 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const cors = require('cors');
-const queryParser = require('express-query-int');
+const { queryParser } = require('express-query-parser');
 const AppError = require('./utils/AppError');
 const errorController = require('./controller/error_controller');
 const responseMessages = require('./config/response_messages');
@@ -21,7 +21,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('tiny'));
 app.use(helmet());
-app.use(queryParser());
+app.use(
+  queryParser({
+    parseNull: true,
+    parseUndefined: true,
+    parseBoolean: true,
+    parseNumber: true, // TODO: solve the hex issue
+  })
+);
 
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
@@ -51,6 +58,7 @@ app.get('/api/s3-url', auth.authenticate, S3Controller.getS3UploadUrl);
 
 // NFT Routes
 app.get('/api/nfts', NFTController.getForSaleNFTs);
+app.get('/api/nfts/search-api', NFTController.searchWithAggregation);
 app.patch(
   '/api/nfts/update-price/:nft_id',
   auth.authenticate,

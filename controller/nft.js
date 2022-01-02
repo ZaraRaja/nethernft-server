@@ -1342,13 +1342,63 @@ exports.search = catchAsync(async (req, res, next) => {
   const searchNfts = await NFT.find({
     name: { $regex: searchField, $options: '$i' },
     status: nftStatuses.FOR_SALE,
-  }).populate('user', { name: 1, account_address, profile_image: 1 });
+  }).populate('user', { name: 1, account_address: 1, profile_image: 1 });
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.NFT_MINTED,
     message: 'NFT minted successfully!',
     nfts: searchNfts,
+  });
+});
+
+exports.searchWithAggregation = catchAsync(async (req, res, next) => {
+  const searchApi = await User.aggregate([
+    { $limit: 1 }, // 2. Keep only one document of the collection.
+    { $project: { _id: '$$REMOVE' } }, // 3. Remove everything from the document.
+
+    // 4. Lookup collections to union together.
+    {
+      $lookup: {
+        from: NFT.collection.name,
+        pipeline: [],
+        as: 'nfts',
+      },
+    },
+    {
+      $lookup: {
+        from: User.collection.name,
+        pipeline: [],
+        as: 'users',
+      },
+    },
+
+    // 5. Union the collections together with a projection.
+    { $project: { union: { $concatArrays: ['$nfts', '$users'] } } },
+
+    // 6. Unwind and replace root so you end up with a result set.
+    { $unwind: '$union' },
+    { $replaceRoot: { newRoot: '$union' } },
+    {
+      $match: {
+        $or: [
+          {
+            name: { $regex: req.query.q, $options: '$i' },
+          },
+          {
+            account_address: { $regex: req.query.q, $options: '$i' },
+          },
+        ],
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.NFT_MINTED,
+    message: 'NFT minted successfully!',
+    count: searchApi.length,
+    results: searchApi,
   });
 });
 
