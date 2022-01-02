@@ -970,7 +970,6 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     message: responseMessages.OK,
     message_description: 'NFT Data',
     nft: modified_nft,
-    result,
   });
 });
 
@@ -1416,6 +1415,11 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
     },
     {
       $unwind: '$user',
+    },
+    {
+      $sort: {
+        updatedAt: -1,
+      },
     },
   ]);
 
