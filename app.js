@@ -29,7 +29,6 @@ app.use('/uploads', express.static(__dirname + '/uploads'));
  * App middlwares
  */
 // const launchpadUpload = require('./middlewares/launchpad_upload');
-const influencerUpload = require('./middlewares/influencer_upload');
 const auth = require('./middlewares/auth');
 
 /**
@@ -40,11 +39,15 @@ const NFTController = require('./controller/nft');
 // const LaunchpadController = require('./controller/launchpad');
 const InfluencerController = require('./controller/influencer');
 const UserController = require('./controller/user');
+const S3Controller = require('./controller/s3');
 const userRoles = require('./config/user_roles');
 
 /**
  * Primary app routes.
  */
+
+// S3 Routes
+app.get('/api/s3-url', auth.authenticate, S3Controller.getS3UploadUrl);
 
 // NFT Routes
 app.get('/api/nfts', NFTController.getForSaleNFTs);
@@ -115,13 +118,6 @@ app.get(
   auth.authenticate,
   auth.authorize(userRoles.ADMIN),
   InfluencerController.getPendingInfluencers
-);
-app.post(
-  '/api/influencers/upload-images',
-  auth.authenticate,
-  auth.authorize(userRoles.USER, userRoles.ADMIN),
-  influencerUpload,
-  InfluencerController.uploadInflencerImages
 );
 app.patch(
   '/api/influencers/update-status/:address',
