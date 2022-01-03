@@ -863,17 +863,30 @@ exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
   const skipValue = req.query.skip || 0;
   const limitValue = req.query.limit || 10;
   const file_format = req.query.file_format || 'all';
+  const category = req.query.category || 'all';
   const dbQuery = NFT.find({ status: nftStatuses.FOR_SALE }).populate('user', {
     account_address: 1,
     name: 1,
     profile_image: 1,
   });
   let result = [];
-  if (file_format === 'all') {
+  if (file_format === 'all' && category === 'all') {
     result = await dbQuery.skip(skipValue).limit(limitValue).exec();
-  } else {
+  } else if (file_format !== 'all' && category === 'all') {
     result = await dbQuery
       .where({ file_format: file_format })
+      .skip(skipValue)
+      .limit(limitValue)
+      .exec();
+  } else if (file_format === 'all' && category !== 'all') {
+    result = await dbQuery
+      .where({ category: category })
+      .skip(skipValue)
+      .limit(limitValue)
+      .exec();
+  } else {
+    result = await dbQuery
+      .where({ category: category, file_format: file_format })
       .skip(skipValue)
       .limit(limitValue)
       .exec();
@@ -1432,54 +1445,5 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
     message: 'NFT History',
     count: roadmap.length,
     roadmap,
-  });
-});
-
-/**
- * Get
- * Api for category section
- */
-
-exports.getAllCategory = catchAsync(async (req, res, next) => {
-  let dbQuery = '';
-  if (req.body.category === 'all') {
-    dbQuery = await NFT.find({ status: 'for_sale' });
-  } else if (req.body.category === 'new') {
-    dbQuery = await NFT.find({ status: 'for_sale' }).sort({ _id: -1 });
-  } else {
-    if (
-      req.body.category === 'music' ||
-      req.body.category === 'sports' ||
-      req.body.category === 'arts' ||
-      req.body.category === 'collectibles' ||
-      req.body.category === 'photography' ||
-      req.body.category === 'trading cards' ||
-      req.body.category === 'utilities' ||
-      req.body.category === 'virtual worlds' ||
-      req.body.category === 'others'
-    ) {
-      console.log('Inside else if', req.body.category);
-      dbQuery = await NFT.find({
-        status: 'for_sale',
-        category: req.body.category,
-      });
-    } else {
-      console.log('No category found');
-    }
-  }
-
-  // if req.body.category = "all" {
-  //   to mubashir bhai wali query}
-  //   else if(req.body.category = "new"){
-  //   sorted data}
-  //   else{
-  //   status:forsale , cat: req.body.categort
-  //   }
-
-  res.status(200).json({
-    status: 'success',
-    message: responseMessages.OK,
-    message_description: 'All NFTs',
-    nfts: dbQuery,
   });
 });
