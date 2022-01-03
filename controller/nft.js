@@ -973,7 +973,6 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     message: responseMessages.OK,
     message_description: 'NFT Data',
     nft: modified_nft,
-    result,
   });
 });
 
@@ -1346,7 +1345,7 @@ exports.search = catchAsync(async (req, res, next) => {
   const searchNfts = await NFT.find({
     name: { $regex: searchField, $options: '$i' },
     status: nftStatuses.FOR_SALE,
-  }).populate('user', { name: 1, account_address, profile_image: 1 });
+  }).populate('user', { name: 1, account_address: 1, profile_image: 1 });
 
   res.status(200).json({
     status: 'success',
@@ -1419,6 +1418,11 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
     },
     {
       $unwind: '$user',
+    },
+    {
+      $sort: {
+        updatedAt: -1,
+      },
     },
   ]);
 

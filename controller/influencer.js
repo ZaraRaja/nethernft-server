@@ -175,22 +175,6 @@ exports.getInfluencerWithNfts = catchAsync(async (req, res, next) => {
 
 /**
  * POST
- * Uploading Influencer Images
- */
-
-exports.uploadInflencerImages = catchAsync(async (req, res, next) => {
-  res.status(200).json({
-    status: 'success',
-    message: responseMessages.IMAGES_UPLOADED,
-    message_description: `Influencer images uploaded successfully!`,
-    images: {
-      cover_image: req.files['cover_image'][0].path,
-    },
-  });
-});
-
-/**
- * POST
  * Admin approve Influncer
  */
 
