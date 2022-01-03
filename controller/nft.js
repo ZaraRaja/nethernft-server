@@ -872,17 +872,34 @@ exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
   let result = [];
   if (file_format === 'all' && category === 'all') {
     result = await dbQuery.skip(skipValue).limit(limitValue).exec();
+  } else if (file_format === 'all' && category === 'new') {
+    result = await dbQuery
+      .skip(skipValue)
+      .limit(limitValue)
+      .sort({ createdAt: -1 })
+      .exec();
+  } else if (
+    file_format === 'all' &&
+    category !== 'all' &&
+    category !== 'new'
+  ) {
+    result = await dbQuery
+      .where({ category: category })
+      .skip(skipValue)
+      .limit(limitValue)
+      .exec();
   } else if (file_format !== 'all' && category === 'all') {
     result = await dbQuery
       .where({ file_format: file_format })
       .skip(skipValue)
       .limit(limitValue)
       .exec();
-  } else if (file_format === 'all' && category !== 'all') {
+  } else if (file_format !== 'all' && category === 'new') {
     result = await dbQuery
-      .where({ category: category })
+      .where({ file_format: file_format })
       .skip(skipValue)
       .limit(limitValue)
+      .sort({ createdAt: -1 })
       .exec();
   } else {
     result = await dbQuery
