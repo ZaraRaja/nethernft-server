@@ -3,7 +3,6 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const cors = require('cors');
-const queryParser = require('express-query-int');
 const AppError = require('./utils/AppError');
 const errorController = require('./controller/error_controller');
 const responseMessages = require('./config/response_messages');
@@ -21,7 +20,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('tiny'));
 app.use(helmet());
-app.use(queryParser());
 
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
@@ -48,6 +46,7 @@ const userRoles = require('./config/user_roles');
 
 // NFT Routes
 app.get('/api/nfts', NFTController.getForSaleNFTs);
+app.get('/api/nfts/category', NFTController.getAllCategory);
 app.patch(
   '/api/nfts/update-price/:nft_id',
   auth.authenticate,
