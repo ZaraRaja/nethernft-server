@@ -953,12 +953,13 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
       {
         account_address: minted_by,
       },
-      { username: 1, account_address: 1, profile_image: 1 }
+      { username: 1, name: 1, account_address: 1, profile_image: 1 }
     );
 
     modified_nft.minted_by = result;
   } else {
     modified_nft.minted_by = {
+      name: nft.user[0].name,
       username: nft.user[0].username,
       account_address: nft.user[0].account_address,
       profile_image: nft.user[0].profile_image,
