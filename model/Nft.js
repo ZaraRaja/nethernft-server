@@ -46,6 +46,22 @@ const nftSchema = new mongoose.Schema(
       enum: [nftStatuses.FOR_SALE, nftStatuses.NOT_FOR_SALE],
       required: [true, 'Please provide NFT status!'],
     },
+    category: {
+      type: String,
+      trim: true,
+      enum: [
+        'music',
+        'arts',
+        'collectibles',
+        'photography',
+        'sports',
+        'trading cards',
+        'utilities',
+        'virtual worlds',
+        'others',
+      ],
+      lowercase: true,
+    },
     owner: {
       type: String,
       trim: true,
