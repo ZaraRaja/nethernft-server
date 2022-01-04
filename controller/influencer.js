@@ -269,7 +269,7 @@ exports.getAllInfluencers = catchAsync(async (req, res, next) => {
  * Get Top Influncer details
  */
 exports.getTopInfluencers = catchAsync(async (req, res, next) => {
-  const influencers = await Transaction.aggregate([
+  let influencers = await Transaction.aggregate([
     {
       $match: {
         trx_type: 'transfer',
@@ -329,6 +329,47 @@ exports.getTopInfluencers = catchAsync(async (req, res, next) => {
       },
     },
   ]);
+
+  if (influencers.length < 10) {
+    const res = await Influencer.aggregate([
+      {
+        $match: {
+          account_address: { $nin: influencers.map((i) => i.account_address) },
+        },
+      },
+      {
+        $limit: 10 - influencers.length,
+      },
+      {
+        $lookup: {
+          from: User.collection.name,
+          localField: 'account_address',
+          foreignField: 'account_address',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $project: {
+          _id: 0,
+          account_address: '$account_address',
+          username: '$user.username',
+          name: '$user.name',
+          profile_image: '$user.profile_image',
+          field: '$field',
+        },
+      },
+      {
+        $addFields: {
+          sale_amount: 0,
+        },
+      },
+    ]);
+
+    influencers = [...influencers, ...res];
+  }
 
   res.status(200).json({
     status: 'success',
