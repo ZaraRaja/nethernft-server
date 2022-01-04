@@ -312,40 +312,93 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     file_hash,
     file_format,
     metadata_hash,
+    selling_type,
+    auction_end_time,
   } = req.body;
-  let { price_in_ntr } = req.body;
+  let { price_in_ntr, starting_price_ntr } = req.body;
 
   if (
-    !nft_id.trim() ||
-    !mint_trx_id.trim() ||
-    !name.trim() ||
-    !description.trim() ||
-    !token_name.trim() ||
-    !price_in_ntr ||
-    !file_hash.trim() ||
-    !file_format.trim() ||
-    !metadata_hash.trim()
+    !nft_id?.trim() ||
+    !mint_trx_id?.trim() ||
+    !name?.trim() ||
+    !description?.trim() ||
+    !token_name?.trim() ||
+    !file_hash?.trim() ||
+    !file_format?.trim() ||
+    !metadata_hash?.trim() ||
+    !selling_type?.trim()
   ) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'NFT ID, Mint Trx ID, Name, description, token name, price in NTR, file hash, file format, and metadata hash fields are required!',
+        'NFT ID, Mint Trx ID, Name, description, token name, price in NTR, file hash, file format, metadata hash fields, and selling type are required!',
         400
       )
     );
   }
 
-  price_in_ntr = Number(price_in_ntr);
-
-  if (isNaN(price_in_ntr)) {
+  if (
+    selling_type?.toLowerCase() !== 'fixed_price' &&
+    selling_type?.toLowerCase() !== 'auction'
+  ) {
     return next(
       new AppError(
-        responseMessages.INVALID_VALUE_TYPE,
-        'Price in NTR should be numbers!',
+        responseMessages.INVALID_VALUE,
+        'Invalid value for selling type!',
         400
       )
     );
   }
+
+  if (
+    selling_type.toLowerCase() === 'auction' &&
+    (!starting_price_ntr || !auction_end_time)
+  ) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Starting price and End Time are required for auction NFT!',
+        400
+      )
+    );
+  }
+
+  if (selling_type.toLowerCase() === 'auction' && !price_in_ntr) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Price in NTR is required for fixed price NFT!',
+        400
+      )
+    );
+  }
+
+  if (selling_type.toLowerCase() === 'auction') {
+    starting_price_ntr = Number(starting_price_ntr);
+
+    if (isNaN(starting_price_ntr)) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE_TYPE,
+          'Starting Price in NTR should be number!',
+          400
+        )
+      );
+    }
+  } else {
+    price_in_ntr = Number(price_in_ntr);
+
+    if (isNaN(price_in_ntr)) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE_TYPE,
+          'Price in NTR should be number!',
+          400
+        )
+      );
+    }
+  }
+
   let duplicate_nft = await NFT.findOne().or([
     { token_name: token_name.toUpperCase() },
     { metadata_hash },
@@ -392,6 +445,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
       )
     );
   }
+
   if (trxDoc.mint_status !== 'pending') {
     return next(
       new AppError(
@@ -411,6 +465,15 @@ exports.completeMint = catchAsync(async (req, res, next) => {
   nft.metadata_hash = metadata_hash;
   nft.owner = owner;
   nft.status = nftStatuses.FOR_SALE;
+  nft.selling_type = selling_type;
+
+  if (selling_type.toLowerCase() === 'auction') {
+    nft.starting_price_ntr = starting_price_ntr;
+    nft.auction_end_time = new Date(auction_end_time);
+  } else {
+    nft.price_in_ntr = price_in_ntr;
+  }
+  // TODO: add a cron job when selling_type is auction
 
   trxDoc.mint_status = 'complete';
 
