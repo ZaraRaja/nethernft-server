@@ -986,12 +986,13 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
       {
         account_address: minted_by,
       },
-      { username: 1, account_address: 1, profile_image: 1 }
+      { username: 1, name: 1, account_address: 1, profile_image: 1 }
     );
 
     modified_nft.minted_by = result;
   } else {
     modified_nft.minted_by = {
+      name: nft.user[0].name,
       username: nft.user[0].username,
       account_address: nft.user[0].account_address,
       profile_image: nft.user[0].profile_image,
@@ -1011,7 +1012,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
  * Get Hot NFT
  */
 exports.getHotNfts = catchAsync(async (req, res, next) => {
-  const nfts = await Transaction.aggregate([
+  let nfts = await Transaction.aggregate([
     {
       $match: {
         trx_type: 'transfer',
@@ -1064,6 +1065,33 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
       },
     },
   ]);
+
+  if (nfts.length < 4) {
+    const res = await NFT.aggregate([
+      {
+        $match: {
+          _id: { $nin: nfts.map((n) => ObjectId(n._id)) },
+          status: 'for_sale',
+        },
+      },
+      {
+        $limit: 4 - nfts.length,
+      },
+      {
+        $lookup: {
+          from: User.collection.name,
+          let: { owner: '$owner' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$account_address', '$$owner'] } } },
+            { $project: { name: 1, account_address: 1, profile_image: 1 } },
+          ],
+          as: 'user',
+        },
+      },
+    ]);
+
+    nfts = [...nfts, ...res];
+  }
 
   res.status(200).json({
     status: 'success',
