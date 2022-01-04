@@ -53,7 +53,7 @@ const nftSchema = new mongoose.Schema(
         'music',
         'arts',
         'collectibles',
-        'photograpy',
+        'photography',
         'sports',
         'trading cards',
         'utilities',
