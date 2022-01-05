@@ -1492,3 +1492,27 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
     roadmap,
   });
 });
+
+/**
+ * Get
+ * Getting All Nfts For Admin
+ */
+
+exports.getAllNFTs = catchAsync(async (req, res, next) => {
+  const skipValue = req.query.skip || 0;
+  const limitValue = req.query.limit || 10;
+  const dbQuery = NFT.find().populate('mint_trx_id').populate('user', {
+    account_address: 1,
+    name: 1,
+    profile_image: 1,
+  });
+  let result = [];
+  result = await dbQuery.skip(skipValue).limit(limitValue).exec();
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All NFTs',
+    count: result.length,
+    nfts: result,
+  });
+});
