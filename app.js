@@ -58,7 +58,7 @@ app.get('/api/s3-url', auth.authenticate, S3Controller.getS3UploadUrl);
 
 // NFT Routes
 app.get('/api/nfts', NFTController.getForSaleNFTs);
-app.get('/api/nfts/all', NFTController.getAllNFTs);
+app.get('/api/nfts/all', NFTController.getAllHistoryForNfts);
 app.patch(
   '/api/nfts/update-price/:nft_id',
   auth.authenticate,
