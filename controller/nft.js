@@ -1499,65 +1499,81 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
  */
 
 exports.getAllHistoryForNfts = catchAsync(async (req, res, next) => {
-  const nftHistory = await Transaction.aggregate([
-    {
-      $lookup: {
-        from: NFT.collection.name,
-        localField: 'nft',
-        foreignField: '_id',
-        as: 'nft',
-      },
-    },
+  const options = {
+    page: req.query.page,
+    limit: req.query.limit,
+  };
 
-    {
-      $lookup: {
-        from: User.collection.name,
-        let: {
-          owner: '$owner',
-          minted_by: '$minted_by',
-          buyer: '$buyer',
+  const data = await Transaction.aggregatePaginate(
+    Transaction.aggregate([
+      {
+        $lookup: {
+          from: NFT.collection.name,
+          localField: 'nft',
+          foreignField: '_id',
+          as: 'nft',
         },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $or: [
-                  { $eq: ['$account_address', '$$owner'] },
-                  { $eq: ['$account_address', '$$minted_by'] },
-                  { $eq: ['$account_address', '$$buyer'] },
-                ],
+      },
+
+      {
+        $lookup: {
+          from: User.collection.name,
+          let: {
+            owner: '$owner',
+            minted_by: '$minted_by',
+            buyer: '$buyer',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ['$account_address', '$$owner'] },
+                    { $eq: ['$account_address', '$$minted_by'] },
+                    { $eq: ['$account_address', '$$buyer'] },
+                  ],
+                },
               },
             },
-          },
-        ],
-        as: 'user',
+          ],
+          as: 'user',
+        },
       },
-    },
-    {
-      $unwind: '$user',
-    },
-    {
-      $unwind: {
-        path: '$nft',
-        preserveNullAndEmptyArrays: true,
+      {
+        $unwind: '$user',
       },
-    },
-    {
-      $project: {
-        trx_type: 1,
-        trx_hash_bnb: 1,
-        nft_id: '$nft._id',
-        nft_name: '$nft.name',
-        user_name: '$user.name',
-        user_account_address: '$user.account_address',
+      {
+        $unwind: {
+          path: '$nft',
+          preserveNullAndEmptyArrays: true,
+        },
       },
-    },
-  ]);
+      {
+        $project: {
+          trx_type: 1,
+          trx_hash_bnb: 1,
+          nft_id: '$nft._id',
+          nft_name: '$nft.name',
+          user_name: '$user.name',
+          user_account_address: '$user.account_address',
+        },
+      },
+    ]),
+    options
+  );
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'All NFTs',
-    count: nftHistory.length,
-    nfts: nftHistory,
+    totalData: data.totalDocs,
+    totalPages: data.totalPages,
+    page: data.page,
+    limit: data.limit,
+    pagingCounter: data.pagingCounter,
+    hasPreviousPage: data.hasPrevPage,
+    hasNextPage: data.hasNextPage,
+    previousPage: data.prevPage,
+    nextPage: data.nextPage,
+    nfts: data.docs,
   });
 });

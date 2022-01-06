@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const dbCollections = require('../config/db_collections');
 const nftStatuses = require('../config/nft_statuses');
 const web3 = require('../config/web3');
+var aggregatePaginate = require('mongoose-aggregate-paginate-v2');
 
 const transactionSchema = new mongoose.Schema(
   {
@@ -95,6 +96,8 @@ const transactionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+transactionSchema.plugin(aggregatePaginate);
 
 const Transaction = mongoose.model(
   dbCollections.TRANSACTION.model,
