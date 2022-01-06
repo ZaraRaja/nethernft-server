@@ -1495,10 +1495,10 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
 
 /**
  * Get
- * Getting All Nfts For Admin
+ * Getting All Transactions For Admin
  */
 
-exports.getAllHistoryForNfts = catchAsync(async (req, res, next) => {
+exports.getAllTransactions = catchAsync(async (req, res, next) => {
   const options = {
     page: req.query.page,
     limit: req.query.limit,
@@ -1564,7 +1564,7 @@ exports.getAllHistoryForNfts = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
-    message_description: 'All NFTs',
+    message_description: 'All Transactions',
     totalData: data.totalDocs,
     totalPages: data.totalPages,
     page: data.page,
@@ -1574,6 +1574,6 @@ exports.getAllHistoryForNfts = catchAsync(async (req, res, next) => {
     hasNextPage: data.hasNextPage,
     previousPage: data.prevPage,
     nextPage: data.nextPage,
-    nfts: data.docs,
+    transactions: data.docs,
   });
 });
