@@ -335,6 +335,7 @@ exports.getTopInfluencers = catchAsync(async (req, res, next) => {
       {
         $match: {
           account_address: { $nin: influencers.map((i) => i.account_address) },
+          status: 'approved',
         },
       },
       {
