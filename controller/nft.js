@@ -869,62 +869,92 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
  * Getting All Nfts For Sale
  */
 
-exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
-  const skipValue = req.query.skip || 0;
-  const limitValue = req.query.limit || 10;
+async function paginatedResults(req, model, filter, options = {}) {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+
+  const results = {};
+
+  const count = await model.countDocuments(filter).exec();
+
+  if (endIndex < count) {
+    results.next = {
+      page: page + 1,
+      limit: limit,
+    };
+  }
+
+  if (startIndex > 0) {
+    results.previous = {
+      page: page - 1,
+      limit: limit,
+    };
+  }
+  try {
+    let dbQuery = model
+      .find(filter)
+      .populate('user', {
+        account_address: 1,
+        name: 1,
+        profile_image: 1,
+      })
+      .limit(limit)
+      .skip(startIndex);
+    if (options.sort) {
+      dbQuery = dbQuery.sort(options.sort);
+    }
+
+    results.nfts = await dbQuery.exec();
+    return results;
+  } catch (e) {
+    throw e;
+  }
+}
+
+exports.getForSaleNFTs = catchAsync(async (req, res) => {
   const file_format = req.query.file_format || 'all';
   const category = req.query.category || 'all';
-  const dbQuery = NFT.find({ status: nftStatuses.FOR_SALE }).populate('user', {
-    account_address: 1,
-    name: 1,
-    profile_image: 1,
-  });
-  let result = [];
+
+  const filter = { status: nftStatuses.FOR_SALE };
+  let result;
   if (file_format === 'all' && category === 'all') {
-    result = await dbQuery.skip(skipValue).limit(limitValue).exec();
+    result = await paginatedResults(req, NFT, filter);
   } else if (file_format === 'all' && category === 'new') {
-    result = await dbQuery
-      .skip(skipValue)
-      .limit(limitValue)
-      .sort({ createdAt: -1 })
-      .exec();
+    result = await paginatedResults(req, NFT, filter, {
+      sort: { createdAt: -1 },
+    });
   } else if (
     file_format === 'all' &&
     category !== 'all' &&
     category !== 'new'
   ) {
-    result = await dbQuery
-      .where({ category: category })
-      .skip(skipValue)
-      .limit(limitValue)
-      .exec();
+    result = await paginatedResults(req, NFT, { ...filter, category });
   } else if (file_format !== 'all' && category === 'all') {
-    result = await dbQuery
-      .where({ file_format: file_format })
-      .skip(skipValue)
-      .limit(limitValue)
-      .exec();
+    result = await paginatedResults(req, NFT, { ...filter, file_format });
   } else if (file_format !== 'all' && category === 'new') {
-    result = await dbQuery
-      .where({ file_format: file_format })
-      .skip(skipValue)
-      .limit(limitValue)
-      .sort({ createdAt: -1 })
-      .exec();
+    result = await paginatedResults(
+      req,
+      NFT,
+      { ...filter, file_format },
+      { sort: { createdAt: -1 } }
+    );
   } else {
-    result = await dbQuery
-      .where({ category: category, file_format: file_format })
-      .skip(skipValue)
-      .limit(limitValue)
-      .exec();
+    result = await paginatedResults(req, NFT, {
+      ...filter,
+      category,
+      file_format,
+    });
   }
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'All NFTs',
-    count: result.length,
-    nfts: result,
+    count: result.nfts.length,
+    data: result,
   });
 });
 
