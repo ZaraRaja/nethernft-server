@@ -1559,6 +1559,11 @@ exports.getAllTransactions = catchAsync(async (req, res, next) => {
         },
       },
       {
+        $sort: {
+          updatedAt: -1,
+        },
+      },
+      {
         $project: {
           trx_type: 1,
           trx_hash_bnb: 1,
