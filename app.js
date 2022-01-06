@@ -135,7 +135,6 @@ app.patch(
 app.patch(
   '/api/influencers/follow/:address',
   auth.authenticate,
-  auth.authorize(userRoles.USER),
   InfluencerController.follow
 );
 // TODO: Remove it
