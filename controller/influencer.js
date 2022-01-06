@@ -335,6 +335,7 @@ exports.getTopInfluencers = catchAsync(async (req, res, next) => {
       {
         $match: {
           account_address: { $nin: influencers.map((i) => i.account_address) },
+          status: 'approved',
         },
       },
       {
@@ -423,16 +424,6 @@ exports.follow = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (req.user.roles.includes(userRoles.INFLUENCER)) {
-    return next(
-      new AppError(
-        responseMessages.INFLUENCER_CANNOT_FOLLOW,
-        'Influencer cannot Follow anyone!',
-        400
-      )
-    );
-  }
-
   const influencer = await Influencer.findOne({
     account_address: web3.utils.toChecksumAddress(req.params.address),
   });
@@ -496,7 +487,20 @@ exports.follow = catchAsync(async (req, res, next) => {
     });
     await new_doc.save();
   } else {
-    await followExist.remove();
+    if (
+      web3.utils.toChecksumAddress(req.user.account_address) ===
+      web3.utils.toChecksumAddress(followExist.follower_address)
+    ) {
+      await followExist.remove();
+    } else {
+      return next(
+        new AppError(
+          responseMessages.UNAUTHORIZED,
+          'You can not unfollow!',
+          403
+        )
+      );
+    }
   }
 
   res.status(200).json({

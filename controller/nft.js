@@ -307,6 +307,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     nft_id,
     mint_trx_id,
     name,
+    category,
     description,
     token_name,
     file_hash,
@@ -326,7 +327,8 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     !file_hash?.trim() ||
     !file_format?.trim() ||
     !metadata_hash?.trim() ||
-    !selling_type?.trim()
+    !selling_type?.trim() ||
+    !category?.trim()
   ) {
     return next(
       new AppError(
@@ -345,6 +347,16 @@ exports.completeMint = catchAsync(async (req, res, next) => {
       new AppError(
         responseMessages.INVALID_VALUE,
         'Invalid value for selling type!',
+        400
+      )
+    );
+  }
+
+  if (/^[A-Z0-9_.]*$/.test(token_name)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'NFT Symbol can contain Alphabets, numbers and _ .',
         400
       )
     );
@@ -459,6 +471,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
   nft.name = name;
   nft.description = description;
   nft.token_name = token_name;
+  nft.category = category;
   nft.price_in_ntr = price_in_ntr;
   nft.file_hash = file_hash;
   nft.file_format = file_format;
@@ -923,17 +936,47 @@ exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
   const skipValue = req.query.skip || 0;
   const limitValue = req.query.limit || 10;
   const file_format = req.query.file_format || 'all';
+  const category = req.query.category || 'all';
   const dbQuery = NFT.find({ status: nftStatuses.FOR_SALE }).populate('user', {
     account_address: 1,
     name: 1,
     profile_image: 1,
   });
   let result = [];
-  if (file_format === 'all') {
+  if (file_format === 'all' && category === 'all') {
     result = await dbQuery.skip(skipValue).limit(limitValue).exec();
-  } else {
+  } else if (file_format === 'all' && category === 'new') {
+    result = await dbQuery
+      .skip(skipValue)
+      .limit(limitValue)
+      .sort({ createdAt: -1 })
+      .exec();
+  } else if (
+    file_format === 'all' &&
+    category !== 'all' &&
+    category !== 'new'
+  ) {
+    result = await dbQuery
+      .where({ category: category })
+      .skip(skipValue)
+      .limit(limitValue)
+      .exec();
+  } else if (file_format !== 'all' && category === 'all') {
     result = await dbQuery
       .where({ file_format: file_format })
+      .skip(skipValue)
+      .limit(limitValue)
+      .exec();
+  } else if (file_format !== 'all' && category === 'new') {
+    result = await dbQuery
+      .where({ file_format: file_format })
+      .skip(skipValue)
+      .limit(limitValue)
+      .sort({ createdAt: -1 })
+      .exec();
+  } else {
+    result = await dbQuery
+      .where({ category: category, file_format: file_format })
       .skip(skipValue)
       .limit(limitValue)
       .exec();
@@ -1520,5 +1563,95 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
     message: 'NFT History',
     count: roadmap.length,
     roadmap,
+  });
+});
+
+/**
+ * Get
+ * Getting All Transactions For Admin
+ */
+
+exports.getAllTransactions = catchAsync(async (req, res, next) => {
+  const options = {
+    page: req.query.page,
+    limit: req.query.limit,
+  };
+
+  const data = await Transaction.aggregatePaginate(
+    Transaction.aggregate([
+      {
+        $lookup: {
+          from: NFT.collection.name,
+          localField: 'nft',
+          foreignField: '_id',
+          as: 'nft',
+        },
+      },
+
+      {
+        $lookup: {
+          from: User.collection.name,
+          let: {
+            owner: '$owner',
+            minted_by: '$minted_by',
+            buyer: '$buyer',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ['$account_address', '$$owner'] },
+                    { $eq: ['$account_address', '$$minted_by'] },
+                    { $eq: ['$account_address', '$$buyer'] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $unwind: {
+          path: '$nft',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $sort: {
+          updatedAt: -1,
+        },
+      },
+      {
+        $project: {
+          trx_type: 1,
+          trx_hash_bnb: 1,
+          nft_id: '$nft._id',
+          nft_name: '$nft.name',
+          user_name: '$user.name',
+          user_account_address: '$user.account_address',
+        },
+      },
+    ]),
+    options
+  );
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Transactions',
+    totalData: data.totalDocs,
+    totalPages: data.totalPages,
+    page: data.page,
+    limit: data.limit,
+    pagingCounter: data.pagingCounter,
+    hasPreviousPage: data.hasPrevPage,
+    hasNextPage: data.hasNextPage,
+    previousPage: data.prevPage,
+    nextPage: data.nextPage,
+    transactions: data.docs,
   });
 });
