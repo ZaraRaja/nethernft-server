@@ -58,6 +58,8 @@ const nftSchema = new mongoose.Schema(
         'trading cards',
         'utilities',
         'virtual worlds',
+        'science',
+        'religion',
         'others',
       ],
       lowercase: true,
