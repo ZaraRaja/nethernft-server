@@ -423,16 +423,6 @@ exports.follow = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (req.user.roles.includes(userRoles.INFLUENCER)) {
-    return next(
-      new AppError(
-        responseMessages.INFLUENCER_CANNOT_FOLLOW,
-        'Influencer cannot Follow anyone!',
-        400
-      )
-    );
-  }
-
   const influencer = await Influencer.findOne({
     account_address: web3.utils.toChecksumAddress(req.params.address),
   });
