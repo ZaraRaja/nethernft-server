@@ -486,7 +486,20 @@ exports.follow = catchAsync(async (req, res, next) => {
     });
     await new_doc.save();
   } else {
-    await followExist.remove();
+    if (
+      web3.utils.toChecksumAddress(req.user.account_address) ===
+      web3.utils.toChecksumAddress(followExist.follower_address)
+    ) {
+      await followExist.remove();
+    } else {
+      return next(
+        new AppError(
+          responseMessages.UNAUTHORIZED,
+          'You can not unfollow!',
+          403
+        )
+      );
+    }
   }
 
   res.status(200).json({
