@@ -337,6 +337,16 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (/^[A-Z0-9_.]*$/.test(token_name)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'NFT Symbol can contain Alphabets, numbers and _ .',
+        400
+      )
+    );
+  }
+
   price_in_ntr = Number(price_in_ntr);
 
   if (isNaN(price_in_ntr)) {
