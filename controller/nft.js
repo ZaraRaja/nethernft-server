@@ -337,7 +337,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (/^[A-Z0-9_.]*$/.test(token_name)) {
+  if (!/^[A-Z0-9_.]*$/.test(token_name)) {
     return next(
       new AppError(
         responseMessages.INVALID_VALUE,
