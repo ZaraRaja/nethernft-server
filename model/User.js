@@ -10,7 +10,11 @@ const User = mongoose.Schema({
     unique: true,
     trim: true,
   },
-  name: {
+  first_name: {
+    type: String,
+    trim: true,
+  },
+  last_name: {
     type: String,
     trim: true,
   },
