@@ -1,6 +1,7 @@
 const responseMessages = require('../config/response_messages');
 const User = require('../model/User');
 const Influencer = require('../model/Influencer');
+const NFT = require('../model/Nft');
 const userRoles = require('../config/user_roles');
 const Crud = require('../services/Crud');
 const catchAsync = require('../utils/catch_async');
@@ -556,5 +557,64 @@ exports.getFollowersByAddress = catchAsync(async (req, res, next) => {
     message: responseMessages.OK,
     message_description: 'All Followers',
     followers,
+  });
+});
+
+/**
+ * Get
+ * Getting All Influencer details For Admin
+ */
+
+exports.getAllInfluencerDetails = catchAsync(async (req, res, next) => {
+  const options = {
+    page: req.query.page,
+    limit: req.query.limit,
+  };
+
+  const influencerData = await User.aggregatePaginate(
+    User.aggregate([
+      {
+        $lookup: {
+          from: Influencer.collection.name,
+          localField: 'influencer',
+          foreignField: '_id',
+          as: 'influencer',
+        },
+      },
+      {
+        $unwind: '$influencer',
+      },
+      {
+        $sort: {
+          updatedAt: -1,
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          account_address: 1,
+          email: 1,
+          influencer_updatedAt: '$influencer.updatedAt',
+          influencer_id: '$influencer._id',
+          influencer_status: '$influencer.status',
+        },
+      },
+    ]),
+    options
+  );
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Influencers Details',
+    totalinfluencerData: influencerData.totalDocs,
+    totalPages: influencerData.totalPages,
+    page: influencerData.page,
+    limit: influencerData.limit,
+    pagingCounter: influencerData.pagingCounter,
+    hasPreviousPage: influencerData.hasPrevPage,
+    hasNextPage: influencerData.hasNextPage,
+    previousPage: influencerData.prevPage,
+    nextPage: influencerData.nextPage,
+    influencers: influencerData.docs,
   });
 });

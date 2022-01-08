@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const dbCollections = require('../config/db_collections');
 const userRoles = require('../config/user_roles');
 const { ObjectId } = mongoose.Schema.Types;
+var aggregatePaginate = require('mongoose-aggregate-paginate-v2');
 
 const User = mongoose.Schema({
   username: {
@@ -50,5 +51,5 @@ const User = mongoose.Schema({
     ref: dbCollections.INFLUENCER.model,
   },
 });
-
+User.plugin(aggregatePaginate);
 module.exports = mongoose.model(dbCollections.USER.model, User);

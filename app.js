@@ -117,6 +117,11 @@ app.get('/api/nfts/:id', NFTController.getOneNft);
 // app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
 
 // Influencers Routes
+app.get(
+  '/api/influencer/details',
+  InfluencerController.getAllInfluencerDetails
+);
+
 app.post(
   '/api/influencers',
   auth.authenticate,
