@@ -1271,7 +1271,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
 
   const nft = await NFT.findOne({
     _id: nft_id,
-    account_address: web3.utils.toChecksumAddress(req.user.account_address),
+    owner: web3.utils.toChecksumAddress(req.user.account_address),
   })
     .populate('mint_trx_id')
     .populate('listing_trx_id');
