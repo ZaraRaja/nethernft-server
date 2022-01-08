@@ -142,11 +142,6 @@ app.patch(
   auth.authenticate,
   InfluencerController.follow
 );
-// TODO: Remove it
-app.get(
-  '/api/influencers/:address/nfts',
-  InfluencerController.getInfluencerWithNfts
-);
 app.get(
   '/api/influencers/:address/followers',
   auth.authenticate,

@@ -1,3 +1,4 @@
+const { isBefore } = require('date-fns');
 const NFT = require('../model/Nft');
 const Transaction = require('../model/Transaction');
 const responseMessages = require('../config/response_messages');
@@ -314,9 +315,8 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     file_format,
     metadata_hash,
     selling_type,
-    auction_end_time,
   } = req.body;
-  let { price_in_ntr, starting_price_ntr } = req.body;
+  let { price_in_ntr, starting_price_ntr, auction_end_time } = req.body;
 
   if (
     !nft_id?.trim() ||
@@ -333,7 +333,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'NFT ID, Mint Trx ID, Name, description, token name, price in NTR, file hash, file format, metadata hash fields, and selling type are required!',
+        'NFT ID, Mint Trx ID, Name, description, token name, file hash, file format, metadata hash fields, and selling type are required!',
         400
       )
     );
@@ -352,7 +352,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (/^[A-Z0-9_.]*$/.test(token_name)) {
+  if (!/^[A-Z0-9_.]*$/.test(token_name)) {
     return next(
       new AppError(
         responseMessages.INVALID_VALUE,
@@ -375,7 +375,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (selling_type.toLowerCase() === 'auction' && !price_in_ntr) {
+  if (selling_type.toLowerCase() === 'fixed_price' && !price_in_ntr) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
@@ -387,12 +387,33 @@ exports.completeMint = catchAsync(async (req, res, next) => {
 
   if (selling_type.toLowerCase() === 'auction') {
     starting_price_ntr = Number(starting_price_ntr);
+    auction_end_time = Number(auction_end_time);
 
     if (isNaN(starting_price_ntr)) {
       return next(
         new AppError(
           responseMessages.INVALID_VALUE_TYPE,
           'Starting Price in NTR should be number!',
+          400
+        )
+      );
+    }
+
+    if (isNaN(auction_end_time)) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE_TYPE,
+          'Auction end time should be number!',
+          400
+        )
+      );
+    }
+
+    if (isBefore(new Date(auction_end_time), new Date())) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE,
+          'Auction end time should be in future!',
           400
         )
       );
@@ -472,7 +493,6 @@ exports.completeMint = catchAsync(async (req, res, next) => {
   nft.description = description;
   nft.token_name = token_name;
   nft.category = category;
-  nft.price_in_ntr = price_in_ntr;
   nft.file_hash = file_hash;
   nft.file_format = file_format;
   nft.metadata_hash = metadata_hash;
@@ -561,6 +581,16 @@ exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (trxDoc.nft.selling_type && trxDoc.nft.selling_type !== 'fixed_price') {
+    return next(
+      new AppError(
+        responseMessages.PENDING_TRANSFER_NOT_FOUND,
+        'NFT not of type fixed price can not be transferred from this route!',
+        404
+      )
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.PENDING_TRANSFER_VERIFIED,
@@ -571,7 +601,7 @@ exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
 
 /**
  * POST
- * Transfering an NFT
+ * Transfering an NFT of type fixed_price
  */
 
 exports.transfer = catchAsync(async (req, res, next) => {
@@ -601,6 +631,16 @@ exports.transfer = catchAsync(async (req, res, next) => {
       new AppError(
         responseMessages.NFT_NOT_FOR_SALE,
         'NFT is not listed for sale!',
+        403
+      )
+    );
+  }
+
+  if (nft.selling_type && nft.selling_type !== 'fixed_price') {
+    return next(
+      new AppError(
+        responseMessages.FORBIDDEN,
+        'NFT not of type fixed price can not be transferred from this route!',
         403
       )
     );
@@ -704,7 +744,7 @@ exports.transfer = catchAsync(async (req, res, next) => {
 
 /**
  * PATCH
- * update the nft price
+ * update the price of fixed_price NFT
  */
 exports.updatePrice = catchAsync(async (req, res, next) => {
   let { price_in_ntr } = req.body;
@@ -743,7 +783,23 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
     );
   }
 
-  nft.price_in_ntr = price_in_ntr;
+  if (nft.selling_type && nft.selling_type === 'auction') {
+    if (isBefore(new Date(), new Date(nft.auction_end_time))) {
+      return next(
+        new AppError(
+          responseMessages.FORBIDDEN,
+          'Price can not be changed for while auction is live!',
+          403
+        )
+      );
+    }
+
+    nft.starting_price_ntr = price_in_ntr;
+  } else {
+    nft.selling_type = 'fixed_price';
+    nft.price_in_ntr = price_in_ntr;
+  }
+
   const savedNft = await nft.save();
 
   res.status(200).json({
@@ -803,6 +859,16 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
       new AppError(
         responseMessages.NFT_NOT_FOR_SALE,
         'NFT is not listed for sale!',
+        403
+      )
+    );
+  }
+
+  if (nft.selling_type && nft.selling_type !== 'fixed_price') {
+    return next(
+      new AppError(
+        responseMessages.FORBIDDEN,
+        'NFT not of type fixed price can not be transferred from this route!',
         403
       )
     );
@@ -981,7 +1047,38 @@ exports.getForSaleNFTs = catchAsync(async (req, res) => {
   const file_format = req.query.file_format || 'all';
   const category = req.query.category || 'all';
 
-  const filter = { status: nftStatuses.FOR_SALE };
+  const filter = {
+    status: nftStatuses.FOR_SALE,
+    $or: [
+      {
+        selling_type: {
+          $exists: false,
+        },
+      },
+      {
+        selling_type: {
+          $exists: true,
+          $eq: 'fixed_price',
+        },
+      },
+      {
+        $and: [
+          {
+            selling_type: {
+              $exists: true,
+              $eq: 'auction',
+            },
+          },
+          {
+            auction_end_time: {
+              $gt: new Date(),
+            },
+          },
+        ],
+      },
+    ],
+  };
+
   let result;
   if (file_format === 'all' && category === 'all') {
     result = await paginatedResults(req, NFT, filter);
@@ -1146,7 +1243,37 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
       $unwind: '$nft',
     },
     {
-      $match: { 'nft.status': 'for_sale' },
+      $match: {
+        'nft.status': 'for_sale',
+        $or: [
+          {
+            selling_type: {
+              $exists: false,
+            },
+          },
+          {
+            selling_type: {
+              $exists: true,
+              $eq: 'fixed_price',
+            },
+          },
+          {
+            $and: [
+              {
+                selling_type: {
+                  $exists: true,
+                  $eq: 'auction',
+                },
+              },
+              {
+                auction_end_time: {
+                  $gt: new Date(),
+                },
+              },
+            ],
+          },
+        ],
+      },
     },
     {
       $limit: 4,
@@ -1175,6 +1302,34 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
         $match: {
           _id: { $nin: nfts.map((n) => ObjectId(n._id)) },
           status: 'for_sale',
+          $or: [
+            {
+              selling_type: {
+                $exists: false,
+              },
+            },
+            {
+              selling_type: {
+                $exists: true,
+                $eq: 'fixed_price',
+              },
+            },
+            {
+              $and: [
+                {
+                  selling_type: {
+                    $exists: true,
+                    $eq: 'auction',
+                  },
+                },
+                {
+                  auction_end_time: {
+                    $gt: new Date(),
+                  },
+                },
+              ],
+            },
+          ],
         },
       },
       {
@@ -1254,7 +1409,6 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
       web3.utils.toChecksumAddress(req.user.account_address) &&
     !nft.transfer_trx_id
   ) {
-    console.log('NFT', nft);
     return res.status(200).json({
       status: 'success',
       message: responseMessages.MINTER_IS_OWNER,
@@ -1308,7 +1462,7 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
 
 exports.updateSaleStatus = catchAsync(async (req, res, next) => {
   const { trx_hash_bnb, nft_id, listing_status } = req.body;
-  let { fee_paid_in_bnb } = req.body;
+  let { fee_paid_in_bnb, auction_end_time } = req.body;
 
   if (!listing_status?.trim() || !nft_id?.trim()) {
     return next(
@@ -1319,6 +1473,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
       )
     );
   }
+
   if (
     listing_status !== nftStatuses.FOR_SALE &&
     listing_status !== nftStatuses.NOT_FOR_SALE
@@ -1334,7 +1489,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
 
   const nft = await NFT.findOne({
     _id: nft_id,
-    account_address: web3.utils.toChecksumAddress(req.user.account_address),
+    owner: web3.utils.toChecksumAddress(req.user.account_address),
   })
     .populate('mint_trx_id')
     .populate('listing_trx_id');
@@ -1343,6 +1498,60 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     return next(
       new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
     );
+  }
+
+  if (nft.selling_type === 'auction') {
+    if (listing_status !== 'for_sale') {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE,
+          'Auction NFT can only be listed for sale!',
+          400
+        )
+      );
+    }
+
+    if (isBefore(new Date(), new Date(nft.auction_end_time))) {
+      return next(
+        new AppError(
+          responseMessages.FORBIDDEN,
+          'Status can not be changed for while auction is live!',
+          403
+        )
+      );
+    }
+
+    if (!auction_end_time) {
+      return next(
+        new AppError(
+          responseMessages.MISSING_REQUIRED_FIELDS,
+          'End time for auction is required!',
+          400
+        )
+      );
+    }
+
+    auction_end_time = Number(auction_end_time);
+
+    if (isNaN(auction_end_time)) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE_TYPE,
+          'Auction end time should be number!',
+          400
+        )
+      );
+    }
+
+    if (isBefore(new Date(auction_end_time), new Date())) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE,
+          'Auction end time should be in future!',
+          400
+        )
+      );
+    }
   }
 
   if (
@@ -1432,8 +1641,19 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
         }
 
         // Update Exisiting Transaction Doc and NFT doc
-        nft.status = listing_status;
-        prevTrxDoc.listing_status = listing_status;
+        if (
+          !(
+            nft.status === listing_status &&
+            prevTrxDoc.listing_status === listing_status
+          )
+        ) {
+          nft.status = listing_status;
+          prevTrxDoc.listing_status = listing_status;
+        }
+
+        if (nft.selling_type === 'auction') {
+          nft.auction_end_time = new Date(auction_end_time);
+        }
 
         const saved_nft = await nft.save();
         await prevTrxDoc.save();
@@ -1451,6 +1671,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
         });
       }
     }
+
     // Else a New Transaction Document will be created and NFT Document will be updated
     const newTrx = new Transaction({
       owner: web3.utils.toChecksumAddress(req.user.account_address),
@@ -1462,8 +1683,14 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     });
 
     await newTrx.save();
+
     nft.status = listing_status;
     nft.listing_trx_id = newTrx._id;
+
+    if (nft.selling_type === 'auction') {
+      nft.auction_end_time = new Date(auction_end_time);
+    }
+
     const saved_nft = await nft.save();
     res.status(200).json({
       status: 'success',
@@ -1479,7 +1706,13 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     });
   }
 
-  nft.status = listing_status;
+  if (nft.status !== listing_status) {
+    nft.status = listing_status;
+  }
+
+  if (nft.selling_type === 'auction') {
+    nft.auction_end_time = new Date(auction_end_time);
+  }
   const saved_nft = await nft.save();
 
   res.status(200).json({

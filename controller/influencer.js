@@ -145,35 +145,6 @@ exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
 });
 
 /**
- * GET
- * Get Influencer Details Along with his deployed NFTs
- */
-
-exports.getInfluencerWithNfts = catchAsync(async (req, res, next) => {
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-    status: nftStatuses.FOR_SALE,
-  }).populate('nfts');
-
-  if (!influencer) {
-    return next(
-      new AppError(
-        responseMessages.INFLUENCER_NOT_FOUND,
-        'Influencer does not exist!',
-        404
-      )
-    );
-  }
-
-  res.status(200).json({
-    status: 'success',
-    message: responseMessages.OK,
-    message_description: `Influencer with Address: ${req.params.address}`,
-    influencer,
-  });
-});
-
-/**
  * POST
  * Admin approve Influncer
  */
