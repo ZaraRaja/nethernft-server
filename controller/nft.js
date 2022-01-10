@@ -898,6 +898,7 @@ async function paginatedResults(req, model, filter, options = {}) {
       .find(filter)
       .populate('user', {
         account_address: 1,
+        name: 1,
         first_name: 1,
         last_name: 1,
         profile_image: 1,
@@ -970,6 +971,7 @@ exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
   })
     .populate('mint_trx_id')
     .populate('user', {
+      name: 1,
       first_name: 1,
       last_name: 1,
       account_address: 1,
@@ -1033,6 +1035,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
         account_address: minted_by,
       },
       {
+        name: 1,
         username: 1,
         first_name: 1,
         last_name: 1,
@@ -1044,6 +1047,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     modified_nft.minted_by = result;
   } else {
     modified_nft.minted_by = {
+      name: nft.user[0].name,
       first_name: nft.user[0].first_name,
       last_name: nft.user[0].last_name,
       username: nft.user[0].username,
@@ -1114,6 +1118,7 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
           { $match: { $expr: { $eq: ['$account_address', '$$owner'] } } },
           {
             $project: {
+              name: 1,
               first_name: 1,
               last_name: 1,
               account_address: 1,
@@ -1145,6 +1150,7 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
             { $match: { $expr: { $eq: ['$account_address', '$$owner'] } } },
             {
               $project: {
+                name: 1,
                 first_name: 1,
                 last_name: 1,
                 account_address: 1,
@@ -1470,12 +1476,18 @@ exports.search = catchAsync(async (req, res, next) => {
   const searchNfts = await NFT.find({
     name: { $regex: searchField, $options: '$i' },
     status: nftStatuses.FOR_SALE,
-  }).populate('user', { name: 1, account_address: 1, profile_image: 1 });
+  }).populate('user', {
+    name: 1,
+    first_name: 1,
+    last_name: 1,
+    account_address: 1,
+    profile_image: 1,
+  });
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.NFT_MINTED,
-    message: 'NFT minted successfully!',
+    message: 'NFT Found successfully!',
     nfts: searchNfts,
   });
 });
@@ -1531,6 +1543,7 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
           },
           {
             $project: {
+              name: 1,
               first_name: 1,
               last_name: 1,
               username: 1,
