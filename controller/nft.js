@@ -1,6 +1,8 @@
 const { isBefore } = require('date-fns');
+const { scheduleJob } = require('node-schedule');
 const NFT = require('../model/Nft');
 const Transaction = require('../model/Transaction');
+const Bid = require('../model/Bid');
 const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
@@ -501,12 +503,18 @@ exports.completeMint = catchAsync(async (req, res, next) => {
   nft.selling_type = selling_type;
 
   if (selling_type.toLowerCase() === 'auction') {
+    nft.auction_status = 'live';
     nft.starting_price_ntr = starting_price_ntr;
     nft.auction_end_time = new Date(auction_end_time);
+
+    // Run the job for this auction
+    scheduleJob(nft.id, nft.auction_end_time, () => {
+      // Call the completeAuction function at specified time
+      console.log('Auction End ->', nft.id);
+    });
   } else {
     nft.price_in_ntr = price_in_ntr;
   }
-  // TODO: add a cron job when selling_type is auction
 
   trxDoc.mint_status = 'complete';
 
@@ -1916,5 +1924,229 @@ exports.getAllTransactions = catchAsync(async (req, res) => {
     previousPage: data.prevPage,
     nextPage: data.nextPage,
     transactions: data.docs,
+  });
+});
+
+/**
+ * POST
+ * Bid on an NFT
+ */
+
+exports.bid = catchAsync(async (req, res, next) => {
+  const { nft_id, trx_hash_bnb, trx_hash_ntr } = req.body;
+  let { fee_paid_in_bnb, bid_price_ntr } = req.body;
+
+  if (
+    !nft_id?.trim() ||
+    !trx_hash_bnb?.trim() ||
+    !trx_hash_ntr?.trim() ||
+    !fee_paid_in_bnb ||
+    !bid_price_ntr
+  ) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'NFT ID, Trx Hash BNB, Fee paid in BNB, Trx Hash NTR and Bid Price in NTR are required!',
+        400
+      )
+    );
+  }
+
+  fee_paid_in_bnb = Number(fee_paid_in_bnb);
+  bid_price_ntr = Number(bid_price_ntr);
+
+  if (isNaN(fee_paid_in_bnb)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Fee paid in BNB should be number!',
+        400
+      )
+    );
+  }
+
+  if (isNaN(bid_price_ntr)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Bid price in NTR should be number!',
+        400
+      )
+    );
+  }
+
+  // Find Auction NFT By ID
+  const nft = await NFT.findOne({
+    _id: nft_id,
+    selling_type: 'auction',
+    auction_end_time: {
+      $gt: new Date(),
+    },
+  });
+
+  if (!nft) {
+    return next(
+      new AppError(
+        responseMessages.NFT_NOT_FOUND,
+        'NFT does not exist or the auction is already completed!',
+        404
+      )
+    );
+  }
+
+  // Check if the owner is not making the bid
+  if (
+    web3.utils.toChecksumAddress(req.user.account_address) ===
+    web3.utils.toChecksumAddress(nft.owner)
+  ) {
+    return next(
+      new AppError(
+        responseMessages.FORBIDDEN,
+        'You can not bid on your own NFT!',
+        403
+      )
+    );
+  }
+
+  // Verify the transactions
+
+  // Verify BNB Transaction Blockchain
+  const trxReciept = await web3.eth.getTransactionReceipt(trx_hash_bnb);
+
+  if (
+    !trxReciept ||
+    (trxReciept && trxReciept.status === false) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.to) !==
+        web3.utils.toChecksumAddress(process.env.ADMIN_ACCOUNT_FOR_BNB_FEE)) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of BNB is invalid!',
+        403
+      )
+    );
+  }
+
+  // Verify NTR Transaction Blockchain
+  const trxRecieptNTR = await web3.eth.getTransactionReceipt(trx_hash_ntr);
+
+  if (
+    !trxRecieptNTR ||
+    (trxRecieptNTR && trxRecieptNTR.status === false) ||
+    (trxRecieptNTR &&
+      web3.utils.toChecksumAddress(trxRecieptNTR.to) !==
+        web3.utils.toChecksumAddress(process.env.NTR_CONTRACT_ADDRESS)) ||
+    (trxRecieptNTR &&
+      web3.utils.toChecksumAddress(trxRecieptNTR.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of NTR is invalid!',
+        403
+      )
+    );
+  }
+
+  // Check if these transaction hashes were used in previous bids by anyone
+  const prevBidBNB = await Bid.exists({
+    trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+  });
+
+  if (prevBidBNB) {
+    return next(
+      new AppError(
+        responseMessages.TRX_HASH_USED,
+        'Transaction hash of BNB is already used in another bidding!',
+        403
+      )
+    );
+  }
+
+  const prevBidNTR = await Bid.exists({
+    trx_hashes_ntr: trx_hash_ntr.toLowerCase(),
+  });
+
+  if (prevBidNTR) {
+    return next(
+      new AppError(
+        responseMessages.TRX_HASH_USED,
+        'Transaction hash of NTR is already used in another bidding!',
+        403
+      )
+    );
+  }
+
+  // Same user can't bid twice
+  const prevBidSameUser = await Bid.exists({
+    bid_status: 'current',
+    nft: nft.id,
+    bidder: web3.utils.toChecksumAddress(req.user.account_address),
+  });
+
+  if (prevBidSameUser) {
+    return next(
+      new AppError(
+        responseMessages.FORBIDDEN,
+        `You can't bid twice on same NFT!`,
+        403
+      )
+    );
+  }
+
+  // Bid should be greater than the starting price
+  if (bid_price_ntr < nft.starting_price_ntr + 50) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'The Bid Price in NTR should be 50 NTRs more than the Starting Price!',
+        400
+      )
+    );
+  }
+
+  // Find the previous highest bid of this NFT which of bid_status = "current"
+  const highestBid = (
+    await Bid.find({ status: 'current' }).sort({ bid_price_ntr: -1 }).limit(1)
+  )[0];
+
+  console.log(highestBid);
+
+  // Bid should be greater than the previous bid
+  if (highestBid && bid_price_ntr < highestBid.bid_price_ntr + 50) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'The Bid Price in NTR should be 50 NTRs more than the highest Bid!',
+        400
+      )
+    );
+  }
+
+  // Create New Bid
+  const new_bid = new Bid({
+    trx_hash_bnb,
+    fee_paid_in_bnb,
+    trx_hashes_ntr: [trx_hash_ntr],
+    bid_price_ntr,
+    auction_by: nft.owner,
+    bidder: req.user.account_address,
+    nft: nft.id,
+    bid_status: 'current',
+  });
+
+  await new_bid.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.BID_CREATED,
+    message_description: 'Bid created successfully!',
+    bid: new_bid,
   });
 });

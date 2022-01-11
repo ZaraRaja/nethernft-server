@@ -70,4 +70,5 @@ module.exports = {
   TRX_HASH_USED_IN_ANOTHER_LISTING: 'trx_hash_used_in_another_listing',
   NFT_PRICE_UPDATED: 'nft_price_updated',
   FORBIDDEN: 'forbidden',
+  BID_CREATED: 'bid_created',
 };

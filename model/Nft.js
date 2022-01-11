@@ -58,8 +58,12 @@ const nftSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       enum: ['auction', 'fixed_price'],
+    },
+    auction_status: {
+      type: String,
+      trim: true,
       lowercase: true,
-      enum: ['auction', 'fixed_price'],
+      enum: ['complete', 'live'], // This field created to be used only in job scheduling
     },
     category: {
       type: String,

@@ -5,4 +5,5 @@ module.exports = {
   LAUNCHPAD: { model: 'Launchpad', coll: 'launchpads' },
   TRANSACTION: { model: 'Transaction', coll: 'transactions' },
   FOLLOWING: { model: 'Following', coll: 'followings' },
+  BID: { model: 'Bid', coll: 'bids' },
 };
