@@ -1123,7 +1123,7 @@ exports.getForSaleNFTs = catchAsync(async (req, res) => {
  * Getting All Nfts By Address
  */
 
-exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
+exports.getAllNftsByAddress = catchAsync(async (req, res) => {
   let nfts = await NFT.find({
     owner: web3.utils.toChecksumAddress(req.params.account_address),
   })
@@ -1211,7 +1211,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
  * GET
  * Get Hot NFT
  */
-exports.getHotNfts = catchAsync(async (req, res, next) => {
+exports.getHotNfts = catchAsync(async (req, res) => {
   let nfts = await Transaction.aggregate([
     {
       $match: {
@@ -1734,7 +1734,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
  * Api for searching nfts
  */
 
-exports.search = catchAsync(async (req, res, next) => {
+exports.search = catchAsync(async (req, res) => {
   const searchField = req.query.q;
   const searchNfts = await NFT.find({
     name: { $regex: searchField, $options: '$i' },
@@ -1754,7 +1754,7 @@ exports.search = catchAsync(async (req, res, next) => {
  * Api for road-map of listing
  */
 
-exports.getRoadMap = catchAsync(async (req, res, next) => {
+exports.getRoadMap = catchAsync(async (req, res) => {
   const roadmap = await Transaction.aggregate([
     {
       $match: {
@@ -1834,7 +1834,7 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
  * Getting All Transactions For Admin
  */
 
-exports.getAllTransactions = catchAsync(async (req, res, next) => {
+exports.getAllTransactions = catchAsync(async (req, res) => {
   const options = {
     page: req.query.page,
     limit: req.query.limit,
