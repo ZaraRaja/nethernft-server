@@ -29,6 +29,10 @@ const User = mongoose.Schema({
     required: true,
     trim: true,
   },
+  custom_image: {
+    type: Boolean,
+    default: false,
+  },
   email: {
     type: String,
     required: true,

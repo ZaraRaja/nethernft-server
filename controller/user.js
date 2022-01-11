@@ -72,6 +72,7 @@ exports.getMe = catchAsync(async (req, res, next) => {
 exports.updateUser = catchAsync(async (req, res, next) => {
   const {
     profile_image,
+    custom_image,
     first_name,
     last_name,
     email,
@@ -84,6 +85,10 @@ exports.updateUser = catchAsync(async (req, res, next) => {
 
   if (profile_image?.trim()) {
     req.user.profile_image = profile_image?.trim();
+  }
+
+  if (custom_image?.trim()) {
+    req.user.custom_image = custom_image?.trim();
   }
 
   if (first_name?.trim()) {
