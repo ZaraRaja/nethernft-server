@@ -11,7 +11,11 @@ const User = mongoose.Schema({
     unique: true,
     trim: true,
   },
-  name: {
+  first_name: {
+    type: String,
+    trim: true,
+  },
+  last_name: {
     type: String,
     trim: true,
   },
@@ -25,6 +29,10 @@ const User = mongoose.Schema({
     type: String,
     required: true,
     trim: true,
+  },
+  custom_image: {
+    type: Boolean,
+    default: false,
   },
   email: {
     type: String,
