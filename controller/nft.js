@@ -465,7 +465,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
   }
 
   const trxDoc = await Transaction.findOne({
-    _id: mint_trx_id,
+    id: mint_trx_id,
     nft: nft_id,
     trx_type: 'mint',
     minted_by: owner,
@@ -781,7 +781,7 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
   }
 
   const nft = await NFT.findOne({
-    _id: nft_id,
+    id: nft_id,
     owner: web3.utils.toChecksumAddress(req.user.account_address),
   });
 
@@ -1385,7 +1385,7 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
   }
 
   const nft = await NFT.findOne({
-    _id: nft_id,
+    id: nft_id,
     owner: web3.utils.toChecksumAddress(req.user.account_address),
   })
     .populate('mint_trx_id')
@@ -1496,7 +1496,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
   }
 
   const nft = await NFT.findOne({
-    _id: nft_id,
+    id: nft_id,
     owner: web3.utils.toChecksumAddress(req.user.account_address),
   })
     .populate('mint_trx_id')
@@ -1932,7 +1932,7 @@ exports.getAllTransactions = catchAsync(async (req, res) => {
  * Bid on an NFT
  */
 
-exports.bid = catchAsync(async (req, res, next) => {
+exports.createBid = catchAsync(async (req, res, next) => {
   const { nft_id, trx_hash_bnb, trx_hash_ntr } = req.body;
   let { fee_paid_in_bnb, bid_price_ntr } = req.body;
 
@@ -1977,8 +1977,9 @@ exports.bid = catchAsync(async (req, res, next) => {
 
   // Find Auction NFT By ID
   const nft = await NFT.findOne({
-    _id: nft_id,
+    id: nft_id,
     selling_type: 'auction',
+    status: nftStatuses.FOR_SALE,
     auction_end_time: {
       $gt: new Date(),
     },
@@ -2116,8 +2117,6 @@ exports.bid = catchAsync(async (req, res, next) => {
     await Bid.find({ status: 'current' }).sort({ bid_price_ntr: -1 }).limit(1)
   )[0];
 
-  console.log(highestBid);
-
   // Bid should be greater than the previous bid
   if (highestBid && bid_price_ntr < highestBid.bid_price_ntr + 50) {
     return next(
@@ -2148,5 +2147,42 @@ exports.bid = catchAsync(async (req, res, next) => {
     message: responseMessages.BID_CREATED,
     message_description: 'Bid created successfully!',
     bid: new_bid,
+  });
+});
+
+/**
+ * GET
+ * Get all Bids for an NFT
+ */
+
+exports.getAllBidsForNFT = catchAsync(async (req, res, next) => {
+  const { nft_id } = req.params;
+
+  // Find Auction NFT By ID
+  const nft = await Bid.findOne({
+    id: nft_id,
+    selling_type: 'auction',
+    status: nftStatuses.FOR_SALE,
+    auction_end_time: {
+      $gt: new Date(),
+    },
+  });
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  const bids = await Bid.find({
+    nft: nft_id,
+    bid_status: 'current',
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Bids',
+    bids,
   });
 });
