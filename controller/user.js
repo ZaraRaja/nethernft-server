@@ -87,9 +87,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     req.user.profile_image = profile_image?.trim();
   }
 
-  if (custom_image?.trim()) {
-    req.user.custom_image = custom_image?.trim();
-  }
+  req.user.custom_image = custom_image;
 
   if (first_name?.trim()) {
     req.user.first_name = first_name?.trim();
