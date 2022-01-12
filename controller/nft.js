@@ -902,6 +902,7 @@ async function paginatedResults(req, model, filter, options = {}) {
         first_name: 1,
         last_name: 1,
         profile_image: 1,
+        custom_image: 1,
       })
       .limit(limit)
       .skip(startIndex);
@@ -976,6 +977,7 @@ exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
       last_name: 1,
       account_address: 1,
       profile_image: 1,
+      custom_image: 1,
     });
 
   nfts = nfts.filter((N) => {
@@ -1041,6 +1043,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
         last_name: 1,
         account_address: 1,
         profile_image: 1,
+        custom_image: 1,
       }
     );
 
@@ -1053,6 +1056,7 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
       username: nft.user[0].username,
       account_address: nft.user[0].account_address,
       profile_image: nft.user[0].profile_image,
+      custom_image: nft.user[0].custom_image,
     };
   }
 
@@ -1123,6 +1127,7 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
               last_name: 1,
               account_address: 1,
               profile_image: 1,
+              custom_image: 1,
             },
           },
         ],
@@ -1155,6 +1160,7 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
                 last_name: 1,
                 account_address: 1,
                 profile_image: 1,
+                custom_image: 1,
               },
             },
           ],
@@ -1482,6 +1488,7 @@ exports.search = catchAsync(async (req, res, next) => {
     last_name: 1,
     account_address: 1,
     profile_image: 1,
+    custom_image: 1,
   });
 
   res.status(200).json({
@@ -1549,6 +1556,7 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
               username: 1,
               account_address: 1,
               profile_image: 1,
+              custom_image: 1,
             },
           },
         ],
