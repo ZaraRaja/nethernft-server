@@ -119,6 +119,8 @@ app.get('/api/nfts/:id', NFTController.getOneNft);
 // Influencers Routes
 app.get(
   '/api/influencer/details',
+  auth.authenticate,
+  auth.authorize(userRoles.ADMIN),
   InfluencerController.getAllInfluencerDetails
 );
 
