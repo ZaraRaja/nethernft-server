@@ -599,6 +599,8 @@ exports.getAllInfluencerDetails = catchAsync(async (req, res, next) => {
       {
         $project: {
           name: 1,
+          first_name: 1,
+          last_name: 1,
           account_address: 1,
           email: 1,
           influencer_updatedAt: '$influencer.updatedAt',

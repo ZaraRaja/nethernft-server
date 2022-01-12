@@ -1649,6 +1649,8 @@ exports.getAllTransactions = catchAsync(async (req, res, next) => {
           nft_id: '$nft._id',
           nft_name: '$nft.name',
           user_name: '$user.name',
+          first_name: '$user.first_name',
+          last_name: '$user.last_name',
           user_account_address: '$user.account_address',
         },
       },
