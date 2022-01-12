@@ -364,6 +364,7 @@ exports.getTopInfluencers = catchAsync(async (req, res, next) => {
           first_name: '$user.first_name',
           last_name: '$user.last_name',
           profile_image: '$user.profile_image',
+          custom_image: '$user.custom_image',
           field: '$field',
         },
       },
