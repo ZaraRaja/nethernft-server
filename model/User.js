@@ -50,6 +50,7 @@ const User = mongoose.Schema({
       userRoles.USER,
       userRoles.INFLUENCER,
       userRoles.PENDING_INFLUENCER,
+      userRoles.REJECTED_INFLUENCER,
       userRoles.ADMIN,
     ],
     default: [userRoles.USER],

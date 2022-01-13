@@ -180,6 +180,7 @@ exports.getInfluencerWithNfts = catchAsync(async (req, res, next) => {
  */
 
 exports.updateStatus = catchAsync(async (req, res, next) => {
+  console.log('****', req.body);
   const influencer = await Influencer.findOne({
     account_address: web3.utils.toChecksumAddress(req.params.address),
   });
@@ -234,8 +235,10 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
   if (req.body.status === 'approved') {
     user.roles.push(userRoles.INFLUENCER);
   }
+  if (req.body.status === 'rejected') {
+    user.roles.push(userRoles.REJECTED_INFLUENCER);
+  }
   influencer.status = req.body.status;
-
   await user.save();
   const saved_influencer = await influencer.save();
 
