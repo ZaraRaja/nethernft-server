@@ -118,6 +118,113 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
 });
 
 /**
+ * UPDATE
+ * Updating an Influncer
+ */
+exports.updateInfluencer = catchAsync(async (req, res, next) => {
+  console.log('Req.body', req.body);
+  const {
+    short_bio,
+    field,
+    cover_image,
+    website_url,
+    youtube_channel_url,
+    facebook_username,
+    twitch_username,
+    snapchat_username,
+    instagram_username,
+  } = req.body;
+
+  if (!short_bio?.trim() || !cover_image?.trim() || !field?.trim()) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'cover_image, short_bio, and field are required!',
+        400
+      )
+    );
+  }
+
+  // if (req.user.roles.includes(userRoles.INFLUENCER)) {
+  //   if (req.user[userRoles.INFLUENCER].status === 'approved') {
+  //     return next(
+  //       new AppError(
+  //         responseMessages.ALREADY_INFLUENCER,
+  //         'You are already an Influencer!',
+  //         403
+  //       )
+  //     );
+  //   } else if (req.user[userRoles.INFLUENCER].status === 'rejected') {
+  //     return next(
+  //       new AppError(
+  //         responseMessages.INFLUENCER_REQUEST_REJECTED,
+  //         'Your request to become Influencer is rejected!',
+  //         403
+  //       )
+  //     );
+  //   } else {
+  //     return next(
+  //       new AppError(
+  //         responseMessages.INFLUENCER_REQUEST_PENDING,
+  //         'You have a pending request to become Influencer!',
+  //         403
+  //       )
+  //     );
+  //   }
+  // }
+
+  const influencer = await Influencer.findOne({
+    account_address: web3.utils.toChecksumAddress(req.params.address),
+    status: 'rejected',
+  });
+
+  console.log('Influcner', influencer);
+  const user = await User.findOne({
+    account_address: web3.utils.toChecksumAddress(req.params.address),
+    roles: userRoles.PENDING_INFLUENCER,
+  });
+
+  console.log('User', user);
+
+  if (!influencer) {
+    return next(
+      new AppError(
+        responseMessages.USER_NOT_FOUND,
+        'Influencer does not exist!',
+        404
+      )
+    );
+  }
+  if (!user) {
+    return next(
+      new AppError(responseMessages.USER_NOT_FOUND, 'User does not exist!', 404)
+    );
+  }
+
+  influencer.short_bio = short_bio;
+  influencer.field = field;
+  influencer.cover_image = cover_image;
+  influencer.website_url = website_url;
+  influencer.youtube_channel_url = youtube_channel_url;
+  influencer.facebook_username = facebook_username;
+  influencer.twitch_username = twitch_username;
+  influencer.snapchat_username = snapchat_username;
+  influencer.instagram_username = instagram_username;
+  influencer.status = 'pending';
+  const saved_influencer = await influencer.save();
+  user.roles.push(userRoles.REJECTED_INFLUENCER);
+  await user.save();
+
+  console.log('Updete', saved_influencer);
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.INFLUENCER_UPDATED,
+    message_description: 'Your request is submitted to become an Influencer!',
+    influencer: saved_influencer,
+  });
+});
+
+/**
  * GET
  * Fetching Influncer based on Address
  */
