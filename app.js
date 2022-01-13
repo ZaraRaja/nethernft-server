@@ -113,6 +113,11 @@ app.post(
 app.get('/api/nfts/roadmap/:id', NFTController.getRoadMap);
 app.post('/api/nfts/bids', auth.authenticate, NFTController.createBid);
 app.get('/api/nfts/bids/:nft_id', NFTController.getAllBidsForNFT);
+app.patch(
+  '/api/nfts/bids/:id',
+  auth.authenticate,
+  NFTController.updateBidForNFT
+);
 app.get('/api/nfts/by/:account_address', NFTController.getAllNftsByAddress);
 app.get('/api/nfts/:id', NFTController.getOneNft);
 // Launchpad Routes

@@ -71,4 +71,6 @@ module.exports = {
   NFT_PRICE_UPDATED: 'nft_price_updated',
   FORBIDDEN: 'forbidden',
   BID_CREATED: 'bid_created',
+  BID_NOT_FOUND: 'bid_not_found',
+  BID_UPDATED: 'bid_updated',
 };

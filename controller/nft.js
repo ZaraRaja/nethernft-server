@@ -2112,9 +2112,11 @@ exports.createBid = catchAsync(async (req, res, next) => {
     );
   }
 
-  // Find the previous highest bid of this NFT which of bid_status = "current"
+  // Find the previous highest bid of this NFT which is of bid_status = "current"
   const highestBid = (
-    await Bid.find({ status: 'current' }).sort({ bid_price_ntr: -1 }).limit(1)
+    await Bid.find({ status: 'current', nft: nft.id })
+      .sort({ bid_price_ntr: -1 })
+      .limit(1)
   )[0];
 
   // Bid should be greater than the previous bid
@@ -2159,7 +2161,7 @@ exports.getAllBidsForNFT = catchAsync(async (req, res, next) => {
   const { nft_id } = req.params;
 
   // Find Auction NFT By ID
-  const nft = await Bid.findOne({
+  const nft = await NFT.findOne({
     id: nft_id,
     selling_type: 'auction',
     status: nftStatuses.FOR_SALE,
@@ -2184,5 +2186,135 @@ exports.getAllBidsForNFT = catchAsync(async (req, res, next) => {
     message: responseMessages.OK,
     message_description: 'All Bids',
     bids,
+  });
+});
+
+/**
+ * PATCH
+ * Update Bid For NFT
+ */
+
+exports.updateBidForNFT = catchAsync(async (req, res, next) => {
+  const { id: bid_id } = req.params;
+  const { trx_hash_ntr } = req.body;
+  let { bid_price_ntr } = req.body;
+
+  if (!trx_hash_ntr?.trim() || !bid_price_ntr) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Trx Hash NTR and Bid Price in NTR are required!',
+        400
+      )
+    );
+  }
+
+  bid_price_ntr = Number(bid_price_ntr);
+
+  if (isNaN(bid_price_ntr)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Bid price in NTR should be number!',
+        400
+      )
+    );
+  }
+
+  // Find Bid By ID
+  const bid = await Bid.findOne({
+    id: bid_id,
+    bid_status: 'current',
+    bidder: web3.utils.toChecksumAddress(req.user.account_address),
+  });
+
+  if (!bid) {
+    return next(
+      new AppError(responseMessages.BID_NOT_FOUND, 'Bid does not exist!', 404)
+    );
+  }
+
+  const nft = await NFT.exists({
+    id: bid.nft,
+    selling_type: 'auction',
+    status: nftStatuses.FOR_SALE,
+    auction_end_time: {
+      $gt: new Date(),
+    },
+  });
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  // Verify the transactions
+
+  // Verify NTR Transaction Blockchain
+  const trxRecieptNTR = await web3.eth.getTransactionReceipt(trx_hash_ntr);
+
+  if (
+    !trxRecieptNTR ||
+    (trxRecieptNTR && trxRecieptNTR.status === false) ||
+    (trxRecieptNTR &&
+      web3.utils.toChecksumAddress(trxRecieptNTR.to) !==
+        web3.utils.toChecksumAddress(process.env.NTR_CONTRACT_ADDRESS)) ||
+    (trxRecieptNTR &&
+      web3.utils.toChecksumAddress(trxRecieptNTR.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of NTR is invalid!',
+        403
+      )
+    );
+  }
+
+  // Check if this transaction hash is previously used in any other bid
+  const prevBidNTR = await Bid.exists({
+    trx_hashes_ntr: trx_hash_ntr.toLowerCase(),
+  });
+
+  if (prevBidNTR) {
+    return next(
+      new AppError(
+        responseMessages.TRX_HASH_USED,
+        'Transaction hash of NTR is already used in another bidding!',
+        403
+      )
+    );
+  }
+
+  // Find the previous highest bid of this NFT which is of bid_status = "current"
+  const highestBid = (
+    await Bid.find({ status: 'current', nft: bid.nft })
+      .sort({ bid_price_ntr: -1 })
+      .limit(1)
+  )[0];
+
+  // Bid should be greater than the previous bid
+  if (bid_price_ntr + bid.bid_price_ntr < highestBid.bid_price_ntr + 50) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'The Bid Price in NTR should be 50 NTRs more than the highest Bid!',
+        400
+      )
+    );
+  }
+
+  bid.bid_price_ntr += bid_price_ntr;
+  bid.trx_hashes_ntr.push(trx_hash_ntr);
+
+  await bid.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.BID_UPDATED,
+    message_description: 'Bid Updated Successfully!',
+    bid,
   });
 });
