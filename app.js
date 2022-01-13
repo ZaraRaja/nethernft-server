@@ -130,10 +130,7 @@ app.post(
   auth.authorize(userRoles.USER, userRoles.ADMIN),
   InfluencerController.becomeInfluencer
 );
-app.patch(
-  '/api/influencers/:account_addresss',
-  InfluencerController.updateInfluencer
-);
+app.patch('/api/influencers/:account', InfluencerController.updateInfluencer);
 
 app.get('/api/influencers', InfluencerController.getAllInfluencers);
 app.get('/api/influencers/top', InfluencerController.getTopInfluencers);
@@ -167,6 +164,11 @@ app.get(
 app.get(
   '/api/influencers/:address',
   InfluencerController.getInfluencerByAddress
+);
+
+app.get(
+  '/api/influencers/:address',
+  InfluencerController.getRejectedInfluencer
 );
 
 // Auth Routes

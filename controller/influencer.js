@@ -145,61 +145,33 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
     );
   }
 
-  // if (req.user.roles.includes(userRoles.INFLUENCER)) {
-  //   if (req.user[userRoles.INFLUENCER].status === 'approved') {
-  //     return next(
-  //       new AppError(
-  //         responseMessages.ALREADY_INFLUENCER,
-  //         'You are already an Influencer!',
-  //         403
-  //       )
-  //     );
-  //   } else if (req.user[userRoles.INFLUENCER].status === 'rejected') {
-  //     return next(
-  //       new AppError(
-  //         responseMessages.INFLUENCER_REQUEST_REJECTED,
-  //         'Your request to become Influencer is rejected!',
-  //         403
-  //       )
-  //     );
-  //   } else {
-  //     return next(
-  //       new AppError(
-  //         responseMessages.INFLUENCER_REQUEST_PENDING,
-  //         'You have a pending request to become Influencer!',
-  //         403
-  //       )
-  //     );
-  //   }
-  // }
-
   const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
+    account_address: web3.utils.toChecksumAddress(req.params.account),
     status: 'rejected',
   });
 
-  console.log('Influcner', influencer);
   const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-    roles: userRoles.PENDING_INFLUENCER,
+    account_address: web3.utils.toChecksumAddress(req.params.account),
+    roles: userRoles.REJECTED_INFLUENCER,
   });
-
-  console.log('User', user);
 
   if (!influencer) {
     return next(
       new AppError(
-        responseMessages.USER_NOT_FOUND,
+        responseMessages.INFLUENCER_NOT_FOUND,
         'Influencer does not exist!',
         404
       )
     );
   }
+
   if (!user) {
     return next(
       new AppError(responseMessages.USER_NOT_FOUND, 'User does not exist!', 404)
     );
   }
+
+  console.log('User', user);
 
   influencer.short_bio = short_bio;
   influencer.field = field;
@@ -212,7 +184,9 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
   influencer.instagram_username = instagram_username;
   influencer.status = 'pending';
   const saved_influencer = await influencer.save();
-  user.roles.push(userRoles.REJECTED_INFLUENCER);
+  user.roles.push(userRoles.PENDING_INFLUENCER);
+  const index = user.roles.indexOf('rejected_influencer');
+  user.roles.splice(index, 1);
   await user.save();
 
   console.log('Updete', saved_influencer);
@@ -221,6 +195,34 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
     message: responseMessages.INFLUENCER_UPDATED,
     message_description: 'Your request is submitted to become an Influencer!',
     influencer: saved_influencer,
+  });
+});
+
+/**
+ * GET
+ * Fetching one Influncer detail by Adress
+ */
+
+exports.getRejectedInfluencer = catchAsync(async (req, res, next) => {
+  const influencer = await Influencer.findOne({
+    account_address: web3.utils.toChecksumAddress(req.params.address),
+  });
+
+  if (!influencer) {
+    return next(
+      new AppError(
+        responseMessages.INFLUENCER_NOT_FOUND,
+        'Influencer does not exist!',
+        404
+      )
+    );
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: `Influencer with Address: ${req.params.address}`,
+    influencer,
   });
 });
 
