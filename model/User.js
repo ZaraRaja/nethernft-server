@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const dbCollections = require('../config/db_collections');
 const userRoles = require('../config/user_roles');
 const { ObjectId } = mongoose.Schema.Types;
+var aggregatePaginate = require('mongoose-aggregate-paginate-v2');
 
 const User = mongoose.Schema({
   username: {
@@ -10,7 +11,11 @@ const User = mongoose.Schema({
     unique: true,
     trim: true,
   },
-  name: {
+  first_name: {
+    type: String,
+    trim: true,
+  },
+  last_name: {
     type: String,
     trim: true,
   },
@@ -24,6 +29,10 @@ const User = mongoose.Schema({
     type: String,
     required: true,
     trim: true,
+  },
+  custom_image: {
+    type: Boolean,
+    default: false,
   },
   email: {
     type: String,
@@ -41,6 +50,7 @@ const User = mongoose.Schema({
       userRoles.USER,
       userRoles.INFLUENCER,
       userRoles.PENDING_INFLUENCER,
+      userRoles.REJECTED_INFLUENCER,
       userRoles.ADMIN,
     ],
     default: [userRoles.USER],
@@ -50,5 +60,5 @@ const User = mongoose.Schema({
     ref: dbCollections.INFLUENCER.model,
   },
 });
-
+User.plugin(aggregatePaginate);
 module.exports = mongoose.model(dbCollections.USER.model, User);

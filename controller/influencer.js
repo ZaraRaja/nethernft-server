@@ -1,6 +1,7 @@
 const responseMessages = require('../config/response_messages');
 const User = require('../model/User');
 const Influencer = require('../model/Influencer');
+const NFT = require('../model/Nft');
 const userRoles = require('../config/user_roles');
 const Crud = require('../services/Crud');
 const catchAsync = require('../utils/catch_async');
@@ -117,6 +118,92 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
 });
 
 /**
+ * UPDATE
+ * Updating an Influncer
+ */
+exports.updateInfluencer = catchAsync(async (req, res, next) => {
+  console.log('Req.body', req.body);
+  const {
+    short_bio,
+    field,
+    email,
+    username,
+    cover_image,
+    website_url,
+    youtube_channel_url,
+    facebook_username,
+    twitch_username,
+    snapchat_username,
+    instagram_username,
+  } = req.body;
+
+  if (!short_bio?.trim() || !cover_image?.trim() || !field?.trim()) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'cover_image, short_bio, and field are required!',
+        400
+      )
+    );
+  }
+
+  const influencer = await Influencer.findOne({
+    account_address: web3.utils.toChecksumAddress(req.params.account),
+    status: 'rejected',
+  });
+
+  const user = await User.findOne({
+    account_address: web3.utils.toChecksumAddress(req.params.account),
+    roles: userRoles.REJECTED_INFLUENCER,
+  });
+
+  if (!influencer) {
+    return next(
+      new AppError(
+        responseMessages.INFLUENCER_NOT_FOUND,
+        'Influencer does not exist!',
+        404
+      )
+    );
+  }
+
+  if (!user) {
+    return next(
+      new AppError(responseMessages.USER_NOT_FOUND, 'User does not exist!', 404)
+    );
+  }
+
+  console.log('User', user);
+
+  influencer.short_bio = short_bio;
+  influencer.field = field;
+  influencer.cover_image = cover_image;
+  influencer.website_url = website_url;
+  influencer.youtube_channel_url = youtube_channel_url;
+  influencer.facebook_username = facebook_username;
+  influencer.twitch_username = twitch_username;
+  influencer.snapchat_username = snapchat_username;
+  influencer.instagram_username = instagram_username;
+  influencer.status = 'pending';
+  const saved_influencer = await influencer.save();
+  user.roles.push(userRoles.PENDING_INFLUENCER);
+  user.email = email;
+  user.username = username;
+  // user.profile_image = profile_image;
+  const index = user.roles.indexOf('rejected_influencer');
+  user.roles.splice(index, 1);
+  await user.save();
+
+  console.log('Updete', saved_influencer);
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.INFLUENCER_UPDATED,
+    message_description: 'Your request is submitted to become an Influencer!',
+    user: user,
+  });
+});
+
+/**
  * GET
  * Fetching Influncer based on Address
  */
@@ -150,6 +237,7 @@ exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
  */
 
 exports.updateStatus = catchAsync(async (req, res, next) => {
+  console.log('****', req.body);
   const influencer = await Influencer.findOne({
     account_address: web3.utils.toChecksumAddress(req.params.address),
   });
@@ -204,8 +292,10 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
   if (req.body.status === 'approved') {
     user.roles.push(userRoles.INFLUENCER);
   }
+  if (req.body.status === 'rejected') {
+    user.roles.push(userRoles.REJECTED_INFLUENCER);
+  }
   influencer.status = req.body.status;
-
   await user.save();
   const saved_influencer = await influencer.save();
 
@@ -295,7 +385,10 @@ exports.getTopInfluencers = catchAsync(async (req, res, next) => {
         account_address: '$_id',
         username: '$user.username',
         name: '$user.name',
+        first_name: '$user.first_name',
+        last_name: '$user.last_name',
         profile_image: '$user.profile_image',
+        custom_image: '$user.custom_image',
         field: '$influencer.field',
       },
     },
@@ -329,7 +422,10 @@ exports.getTopInfluencers = catchAsync(async (req, res, next) => {
           account_address: '$account_address',
           username: '$user.username',
           name: '$user.name',
+          first_name: '$user.first_name',
+          last_name: '$user.last_name',
           profile_image: '$user.profile_image',
+          custom_image: '$user.custom_image',
           field: '$field',
         },
       },
@@ -515,6 +611,7 @@ exports.getFollowersByAddress = catchAsync(async (req, res, next) => {
         username: '$follower.username',
         name: '$follower.name',
         profile_image: '$follower.profile_image',
+        custom_image: '$follower.custom_image',
         account_address: '$follower.account_address',
         roles: '$follower.roles',
         createdAt: 1,
@@ -527,5 +624,66 @@ exports.getFollowersByAddress = catchAsync(async (req, res, next) => {
     message: responseMessages.OK,
     message_description: 'All Followers',
     followers,
+  });
+});
+
+/**
+ * Get
+ * Getting All Influencer details For Admin
+ */
+
+exports.getAllInfluencerDetails = catchAsync(async (req, res, next) => {
+  const options = {
+    page: req.query.page,
+    limit: req.query.limit,
+  };
+
+  const influencerData = await User.aggregatePaginate(
+    User.aggregate([
+      {
+        $lookup: {
+          from: Influencer.collection.name,
+          localField: 'influencer',
+          foreignField: '_id',
+          as: 'influencer',
+        },
+      },
+      {
+        $unwind: '$influencer',
+      },
+      {
+        $sort: {
+          updatedAt: -1,
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          first_name: 1,
+          last_name: 1,
+          account_address: 1,
+          email: 1,
+          influencer_updatedAt: '$influencer.updatedAt',
+          influencer_id: '$influencer._id',
+          influencer_status: '$influencer.status',
+        },
+      },
+    ]),
+    options
+  );
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Influencers Details',
+    totalinfluencerData: influencerData.totalDocs,
+    totalPages: influencerData.totalPages,
+    page: influencerData.page,
+    limit: influencerData.limit,
+    pagingCounter: influencerData.pagingCounter,
+    hasPreviousPage: influencerData.hasPrevPage,
+    hasNextPage: influencerData.hasNextPage,
+    previousPage: influencerData.prevPage,
+    nextPage: influencerData.nextPage,
+    influencers: influencerData.docs,
   });
 });

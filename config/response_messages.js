@@ -73,4 +73,5 @@ module.exports = {
   BID_CREATED: 'bid_created',
   BID_NOT_FOUND: 'bid_not_found',
   BID_UPDATED: 'bid_updated',
+  INFLUENCER_UPDATED: 'influencer_updated',
 };

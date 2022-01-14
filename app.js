@@ -124,12 +124,26 @@ app.get('/api/nfts/:id', NFTController.getOneNft);
 // app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
 
 // Influencers Routes
+app.get(
+  '/api/influencer/details',
+  auth.authenticate,
+  auth.authorize(userRoles.ADMIN),
+  InfluencerController.getAllInfluencerDetails
+);
+
 app.post(
   '/api/influencers',
   auth.authenticate,
   auth.authorize(userRoles.USER, userRoles.ADMIN),
   InfluencerController.becomeInfluencer
 );
+app.patch(
+  '/api/influencers/:account',
+  auth.authenticate,
+  auth.authorize(userRoles.REJECTED_INFLUENCER),
+  InfluencerController.updateInfluencer
+);
+
 app.get('/api/influencers', InfluencerController.getAllInfluencers);
 app.get('/api/influencers/top', InfluencerController.getTopInfluencers);
 app.get(
@@ -158,7 +172,6 @@ app.get(
   '/api/influencers/:address',
   InfluencerController.getInfluencerByAddress
 );
-
 // Auth Routes
 app.post('/api/auth/signup', auth.isLoggedIn, AuthController.signup);
 app.get(
