@@ -133,7 +133,7 @@ app.post(
 app.patch(
   '/api/influencers/:account',
   auth.authenticate,
-  auth.authorize(userRoles.ADMIN),
+  auth.authorize(userRoles.REJECTED_INFLUENCER),
   InfluencerController.updateInfluencer
 );
 

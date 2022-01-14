@@ -126,6 +126,8 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
   const {
     short_bio,
     field,
+    email,
+    username,
     cover_image,
     website_url,
     youtube_channel_url,
@@ -185,6 +187,9 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
   influencer.status = 'pending';
   const saved_influencer = await influencer.save();
   user.roles.push(userRoles.PENDING_INFLUENCER);
+  user.email = email;
+  user.username = username;
+  // user.profile_image = profile_image;
   const index = user.roles.indexOf('rejected_influencer');
   user.roles.splice(index, 1);
   await user.save();
@@ -194,7 +199,7 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
     status: 'success',
     message: responseMessages.INFLUENCER_UPDATED,
     message_description: 'Your request is submitted to become an Influencer!',
-    influencer: saved_influencer,
+    user: user,
   });
 });
 
