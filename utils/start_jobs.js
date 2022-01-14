@@ -2,6 +2,7 @@ const schedule = require('node-schedule');
 const { isPast } = require('date-fns');
 const nftStatuses = require('../config/nft_statuses');
 const NFT = require('../model/Nft');
+const completeAuction = require('./complete_auction');
 
 module.exports = async () => {
   const auctionNFTs = await NFT.find({
@@ -17,13 +18,14 @@ module.exports = async () => {
       nft.auction_status !== 'complete'
     ) {
       // Call the completeAuction function immediately to clear the pending auctions
+      completeAuction(nft.id);
       return;
     }
 
     // Run the jobs for live auctions
     schedule.scheduleJob(nft.auction_end_time, () => {
       // Call the completeAuction function at specified time
-      console.log('Auction Ended:', nft._id);
+      completeAuction(nft.id);
     });
   });
 };

@@ -53,6 +53,11 @@ const bidSchema = new mongoose.Schema(
         },
       ],
     },
+    trx_hash_returned_ntr: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
   },
   { timestamps: true }
 );
