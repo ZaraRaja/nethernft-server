@@ -170,12 +170,6 @@ app.get(
   '/api/influencers/:address',
   InfluencerController.getInfluencerByAddress
 );
-
-app.get(
-  '/api/influencers/:address',
-  InfluencerController.getRejectedInfluencer
-);
-
 // Auth Routes
 app.post('/api/auth/signup', auth.isLoggedIn, AuthController.signup);
 app.get(

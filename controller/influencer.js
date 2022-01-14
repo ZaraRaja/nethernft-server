@@ -205,34 +205,6 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
 
 /**
  * GET
- * Fetching one Influncer detail by Adress
- */
-
-exports.getRejectedInfluencer = catchAsync(async (req, res, next) => {
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-  });
-
-  if (!influencer) {
-    return next(
-      new AppError(
-        responseMessages.INFLUENCER_NOT_FOUND,
-        'Influencer does not exist!',
-        404
-      )
-    );
-  }
-
-  res.status(200).json({
-    status: 'success',
-    message: responseMessages.OK,
-    message_description: `Influencer with Address: ${req.params.address}`,
-    influencer,
-  });
-});
-
-/**
- * GET
  * Fetching Influncer based on Address
  */
 
