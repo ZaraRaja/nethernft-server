@@ -1916,14 +1916,16 @@ exports.createBid = catchAsync(async (req, res, next) => {
   }
 
   // Find Auction NFT By ID
-  const nft = await NFT.findOne({
-    id: nft_id,
-    selling_type: 'auction',
-    status: nftStatuses.FOR_SALE,
-    auction_end_time: {
-      $gt: new Date(),
-    },
-  });
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      selling_type: 'auction',
+      status: nftStatuses.FOR_SALE,
+      auction_end_time: {
+        $gt: new Date(),
+      },
+    }).limit(1)
+  )[0];
 
   if (!nft) {
     return next(
@@ -2116,10 +2118,35 @@ exports.getAllBidsForNFT = catchAsync(async (req, res, next) => {
     );
   }
 
-  const bids = await Bid.find({
-    nft: nft_id,
-    bid_status: 'current',
-  });
+  const bids = await Bid.aggregate([
+    {
+      $match: {
+        nft: ObjectId(nft_id),
+        bid_status: 'current',
+      },
+    },
+    {
+      $lookup: {
+        from: User.collection.name,
+        let: { bidder: '$bidder' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$account_address', '$$bidder'] } } },
+          {
+            $project: {
+              name: 1,
+              first_name: 1,
+              last_name: 1,
+              account_address: 1,
+            },
+          },
+        ],
+        as: 'user',
+      },
+    },
+    {
+      $unwind: '$user',
+    },
+  ]);
 
   res.status(200).json({
     status: 'success',
@@ -2162,11 +2189,13 @@ exports.updateBidForNFT = catchAsync(async (req, res, next) => {
   }
 
   // Find Bid By ID
-  const bid = await Bid.findOne({
-    id: bid_id,
-    bid_status: 'current',
-    bidder: web3.utils.toChecksumAddress(req.user.account_address),
-  });
+  const bid = (
+    await Bid.find({
+      id: ObjectId(bid_id),
+      bid_status: 'current',
+      bidder: web3.utils.toChecksumAddress(req.user.account_address),
+    }).limit(1)
+  )[0];
 
   if (!bid) {
     return next(
