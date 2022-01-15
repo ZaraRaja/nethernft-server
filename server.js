@@ -13,7 +13,7 @@ const PORT = Number(process.env.PORT) || 5000;
 let server;
 
 async function exitHandler() {
-  await scheduleJob.gracefulShutdown();
+  await schedule.gracefulShutdown();
   if (server) {
     server.close(() => {
       console.log('Server closed');
