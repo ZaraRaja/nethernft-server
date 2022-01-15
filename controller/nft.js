@@ -1312,12 +1312,15 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await NFT.findOne({
-    id: nft_id,
-    owner: web3.utils.toChecksumAddress(req.user.account_address),
-  })
-    .populate('mint_trx_id')
-    .populate('listing_trx_id');
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      owner: web3.utils.toChecksumAddress(req.user.account_address),
+    })
+      .populate('mint_trx_id')
+      .populate('listing_trx_id')
+      .limit(1)
+  )[0];
 
   if (!nft) {
     return next(
@@ -1423,12 +1426,15 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await NFT.findOne({
-    id: nft_id,
-    owner: web3.utils.toChecksumAddress(req.user.account_address),
-  })
-    .populate('mint_trx_id')
-    .populate('listing_trx_id');
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      owner: web3.utils.toChecksumAddress(req.user.account_address),
+    })
+      .populate('mint_trx_id')
+      .populate('listing_trx_id')
+      .limit(1)
+  )[0];
 
   if (!nft) {
     return next(
