@@ -610,6 +610,8 @@ exports.getFollowersByAddress = catchAsync(async (req, res, next) => {
         _id: 0,
         username: '$follower.username',
         name: '$follower.name',
+        first_name: '$follower.first_name',
+        last_name: '$follower.last_name',
         profile_image: '$follower.profile_image',
         custom_image: '$follower.custom_image',
         account_address: '$follower.account_address',
