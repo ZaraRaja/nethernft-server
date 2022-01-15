@@ -2146,6 +2146,11 @@ exports.getAllBidsForNFT = catchAsync(async (req, res, next) => {
     {
       $unwind: '$user',
     },
+    {
+      $sort: {
+        bid_price_ntr: -1,
+      },
+    },
   ]);
 
   res.status(200).json({
