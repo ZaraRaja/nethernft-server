@@ -75,6 +75,7 @@ module.exports = async (nft_id) => {
     nft.transfer_trx_id = trxDoc._id;
     nft.status = nftStatuses.NOT_FOR_SALE;
     nft.auction_status = 'complete';
+    nft.starting_price_ntr = highestBid.bid_price_ntr;
     nft.listing_trx_id = null;
 
     await trxDoc.save();
