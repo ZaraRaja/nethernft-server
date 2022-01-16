@@ -1625,6 +1625,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
 
         if (nft.selling_type === 'auction') {
           nft.auction_end_time = new Date(auction_end_time);
+          nft.auction_status = 'live';
         }
 
         const saved_nft = await nft.save();
@@ -1661,6 +1662,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
 
     if (nft.selling_type === 'auction') {
       nft.auction_end_time = new Date(auction_end_time);
+      nft.auction_status = 'live';
     }
 
     const saved_nft = await nft.save();
@@ -1684,6 +1686,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
 
   if (nft.selling_type === 'auction') {
     nft.auction_end_time = new Date(auction_end_time);
+    nft.auction_status = 'live';
   }
   const saved_nft = await nft.save();
 
