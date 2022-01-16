@@ -120,11 +120,6 @@ app.patch(
 );
 app.get('/api/nfts/by/:account_address', NFTController.getAllNftsByAddress);
 app.get('/api/nfts/:id', NFTController.getOneNft);
-app.post(
-  '/api/nfts/change-selling-type',
-  auth.authenticate,
-  NFTController.changeSellingType
-);
 app.get(
   '/api/influencer/details',
   auth.authenticate,

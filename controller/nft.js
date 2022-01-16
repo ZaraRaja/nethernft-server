@@ -1428,14 +1428,27 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
  */
 
 exports.updateSaleStatus = catchAsync(async (req, res, next) => {
-  const { trx_hash_bnb, nft_id, listing_status } = req.body;
+  const { trx_hash_bnb, nft_id, listing_status, selling_type } = req.body;
   let { fee_paid_in_bnb, auction_end_time } = req.body;
 
-  if (!listing_status?.trim() || !nft_id?.trim()) {
+  if (!listing_status?.trim() || !nft_id?.trim() || !selling_type?.trim()) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'Listing Status and NFT ID are required!',
+        'Listing Status, NFT ID and Selling Type are required!',
+        400
+      )
+    );
+  }
+
+  if (
+    selling_type.trim() !== 'auction' &&
+    selling_type.trim() !== 'fixed_price'
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'Selling Type is invalid!',
         400
       )
     );
@@ -1468,6 +1481,19 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     return next(
       new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
     );
+  }
+
+  if (listing_status === 'for_sale') {
+    if (selling_type === 'auction') {
+      nft.selling_type = 'auction';
+      nft.starting_price_ntr = nft.starting_price_ntr || nft.price_in_ntr || 0;
+      nft.price_in_ntr = null;
+    } else if (selling_type === 'fixed_price') {
+      nft.selling_type = 'fixed_price';
+      nft.auction_end_time = null;
+      nft.price_in_ntr = nft.price_in_ntr || nft.starting_price_ntr || 0;
+      nft.starting_price_ntr = null;
+    }
   }
 
   if (nft.selling_type === 'auction') {
@@ -1700,87 +1726,6 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
       saved_nft.status === nftStatuses.FOR_SALE
         ? 'NFT successfully listed for sale!'
         : 'NFT successfully removed from sale!',
-    nft: saved_nft,
-  });
-});
-
-/**
- * POST
- * Change Selling Type of NFT
- */
-
-exports.changeSellingType = catchAsync(async (req, res, next) => {
-  const { nft_id, selling_type } = req.body;
-
-  if (!selling_type?.trim() || !nft_id?.trim()) {
-    return next(
-      new AppError(
-        responseMessages.MISSING_REQUIRED_FIELDS,
-        'Selling Type and NFT ID are required!',
-        400
-      )
-    );
-  }
-
-  if (
-    selling_type.trim() !== 'auction' &&
-    selling_type.trim() !== 'fixed_price'
-  ) {
-    return next(
-      new AppError(
-        responseMessages.INVALID_VALUE,
-        'Selling Type is invalid!',
-        400
-      )
-    );
-  }
-
-  const nft = (
-    await NFT.find({
-      _id: ObjectId(nft_id),
-      owner: web3.utils.toChecksumAddress(req.user.account_address),
-    }).limit(1)
-  )[0];
-
-  if (!nft) {
-    return next(
-      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
-    );
-  }
-
-  if (nft.status === 'for_sale') {
-    return next(
-      new AppError(
-        responseMessages.FORBIDDEN,
-        'NFT selling type can not be changed while it is listed for sale!',
-        403
-      )
-    );
-  }
-
-  if (selling_type === 'auction') {
-    nft.selling_type = 'auction';
-    nft.auction_status = 'complete';
-    nft.auction_end_time = null;
-    nft.starting_price_ntr = nft.starting_price_ntr || nft.price_in_ntr || 0;
-    nft.price_in_ntr = null;
-  } else if (selling_type === 'fixed_price') {
-    nft.selling_type = 'fixed_price';
-    nft.auction_status = 'complete';
-    nft.auction_end_time = null;
-    nft.price_in_ntr = nft.price_in_ntr || nft.starting_price_ntr || 0;
-    nft.starting_price_ntr = null;
-  }
-
-  const saved_nft = await nft.save();
-
-  res.status(200).json({
-    status: 'success',
-    message: responseMessages.SELLING_TYPE_CHANGED,
-    message_description:
-      saved_nft.selling_type === 'auction'
-        ? 'NFT selling type changed to auction!'
-        : 'NFT selling type changed to fixed price!',
     nft: saved_nft,
   });
 });
