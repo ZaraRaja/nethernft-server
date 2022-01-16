@@ -74,4 +74,5 @@ module.exports = {
   BID_NOT_FOUND: 'bid_not_found',
   BID_UPDATED: 'bid_updated',
   INFLUENCER_UPDATED: 'influencer_updated',
+  SELLING_TYPE_CHANGED: 'selling_type_changed',
 };

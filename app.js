@@ -120,10 +120,11 @@ app.patch(
 );
 app.get('/api/nfts/by/:account_address', NFTController.getAllNftsByAddress);
 app.get('/api/nfts/:id', NFTController.getOneNft);
-// Launchpad Routes
-// app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
-
-// Influencers Routes
+app.post(
+  '/api/nfts/change-selling-type',
+  auth.authenticate,
+  NFTController.changeSellingType
+);
 app.get(
   '/api/influencer/details',
   auth.authenticate,
@@ -131,6 +132,7 @@ app.get(
   InfluencerController.getAllInfluencerDetails
 );
 
+// Influencers Routes
 app.post(
   '/api/influencers',
   auth.authenticate,
