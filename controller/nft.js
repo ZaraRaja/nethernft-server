@@ -1431,24 +1431,11 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
   const { trx_hash_bnb, nft_id, listing_status, selling_type } = req.body;
   let { fee_paid_in_bnb, auction_end_time } = req.body;
 
-  if (!listing_status?.trim() || !nft_id?.trim() || !selling_type?.trim()) {
+  if (!listing_status?.trim() || !nft_id?.trim()) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'Listing Status, NFT ID and Selling Type are required!',
-        400
-      )
-    );
-  }
-
-  if (
-    selling_type.trim() !== 'auction' &&
-    selling_type.trim() !== 'fixed_price'
-  ) {
-    return next(
-      new AppError(
-        responseMessages.INVALID_VALUE,
-        'Selling Type is invalid!',
+        'Listing Status and NFT ID are required!',
         400
       )
     );
@@ -1462,6 +1449,30 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
       new AppError(
         responseMessages.INVALID_VALUE,
         'Status value is invalid!',
+        400
+      )
+    );
+  }
+
+  if (listing_status.trim() === 'for_sale' && !selling_type?.trim()) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Selling type is required!',
+        400
+      )
+    );
+  }
+
+  if (
+    listing_status.trim() === 'for_sale' &&
+    selling_type.trim() !== 'auction' &&
+    selling_type.trim() !== 'fixed_price'
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'Selling Type is invalid!',
         400
       )
     );
@@ -1483,12 +1494,12 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (listing_status === 'for_sale') {
-    if (selling_type === 'auction') {
+  if (listing_status.trim() === 'for_sale') {
+    if (selling_type.trim() === 'auction') {
       nft.selling_type = 'auction';
       nft.starting_price_ntr = nft.starting_price_ntr || nft.price_in_ntr || 0;
       nft.price_in_ntr = null;
-    } else if (selling_type === 'fixed_price') {
+    } else if (selling_type.trim() === 'fixed_price') {
       nft.selling_type = 'fixed_price';
       nft.auction_end_time = null;
       nft.price_in_ntr = nft.price_in_ntr || nft.starting_price_ntr || 0;
