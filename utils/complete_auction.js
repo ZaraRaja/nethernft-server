@@ -30,6 +30,14 @@ module.exports = async (nft_id) => {
       bid_price_ntr: -1,
     });
 
+    if (bids.length === 0) {
+      // Update NFT Document
+      nft.status = nftStatuses.NOT_FOR_SALE;
+      nft.auction_status = 'complete';
+      await nft.save();
+      return;
+    }
+
     // Get the Highest Bid
     const highestBid = bids[0];
 
