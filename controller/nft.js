@@ -31,12 +31,16 @@ exports.verifyPreviousMintTrx = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await Transaction.findOne({
-    nft: nft_id,
-    trx_type: 'mint',
-    mint_status: 'pending',
-    minted_by: web3.utils.toChecksumAddress(req.user.account_address),
-  }).populate('nft');
+  const trxDoc = (
+    await Transaction.find({
+      nft: ObjectId(nft_id),
+      trx_type: 'mint',
+      mint_status: 'pending',
+      minted_by: web3.utils.toChecksumAddress(req.user.account_address),
+    })
+      .populate('nft')
+      .limit(1)
+  )[0];
 
   if (!trxDoc) {
     return next(
@@ -119,9 +123,11 @@ exports.mint = catchAsync(async (req, res, next) => {
     );
   }
 
-  const prevTrxDoc = await Transaction.findOne({
-    trx_hash_bnb: trx_hash_bnb.toLowerCase(),
-  });
+  const prevTrxDoc = (
+    await Transaction.find({
+      trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+    }).limit(1)
+  )[0];
 
   if (prevTrxDoc) {
     if (
@@ -323,11 +329,15 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     }
   }
 
-  let duplicate_nft = await NFT.findOne().or([
-    { token_name: token_name.toUpperCase() },
-    { metadata_hash },
-    { file_hash },
-  ]);
+  let duplicate_nft = (
+    await NFT.find()
+      .or([
+        { token_name: token_name.toUpperCase() },
+        { metadata_hash },
+        { file_hash },
+      ])
+      .limit(1)
+  )[0];
 
   if (duplicate_nft) {
     return next(
@@ -341,11 +351,13 @@ exports.completeMint = catchAsync(async (req, res, next) => {
 
   owner = web3.utils.toChecksumAddress(req.user.account_address);
 
-  const nft = await NFT.findOne({
-    id: nft_id,
-    mint_trx_id,
-    owner,
-  });
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      mint_trx_id,
+      owner,
+    }).limit(1)
+  )[0];
 
   if (!nft) {
     return next(
@@ -353,12 +365,14 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await Transaction.findOne({
-    id: mint_trx_id,
-    nft: nft_id,
-    trx_type: 'mint',
-    minted_by: owner,
-  });
+  const trxDoc = (
+    await Transaction.find({
+      _id: ObjectId(mint_trx_id),
+      nft: ObjectId(nft_id),
+      trx_type: 'mint',
+      minted_by: owner,
+    }).limit(1)
+  )[0];
 
   if (!trxDoc) {
     return next(
@@ -437,12 +451,16 @@ exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await Transaction.findOne({
-    nft: nft_id,
-    trx_type: 'transfer',
-    transfer_status: 'pending',
-    buyer: web3.utils.toChecksumAddress(req.user.account_address),
-  }).populate('nft');
+  const trxDoc = (
+    await Transaction.find({
+      nft: ObjectId(nft_id),
+      trx_type: 'transfer',
+      transfer_status: 'pending',
+      buyer: web3.utils.toChecksumAddress(req.user.account_address),
+    })
+      .populate('nft')
+      .limit(1)
+  )[0];
 
   if (!trxDoc) {
     return next(
@@ -577,9 +595,11 @@ exports.transfer = catchAsync(async (req, res, next) => {
     );
   }
 
-  const prevTrxDoc = await Transaction.findOne({
-    trx_hash_bnb: trx_hash_bnb.toLowerCase(),
-  });
+  const prevTrxDoc = (
+    await Transaction.find({
+      trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+    }).limit(1)
+  )[0];
 
   if (prevTrxDoc) {
     if (
@@ -669,10 +689,12 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await NFT.findOne({
-    id: nft_id,
-    owner: web3.utils.toChecksumAddress(req.user.account_address),
-  });
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      owner: web3.utils.toChecksumAddress(req.user.account_address),
+    }).limit(1)
+  )[0];
 
   if (!nft) {
     return next(
@@ -692,9 +714,11 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
     }
 
     nft.starting_price_ntr = price_in_ntr;
+    nft.price_in_ntr = null;
   } else {
     nft.selling_type = 'fixed_price';
     nft.price_in_ntr = price_in_ntr;
+    nft.starting_price_ntr = null;
   }
 
   const savedNft = await nft.save();
@@ -771,12 +795,14 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await Transaction.findOne({
-    trx_hash_bnb,
-    nft: nft_id,
-    transfer_status: 'pending',
-    buyer: web3.utils.toChecksumAddress(req.user.account_address),
-  });
+  const trxDoc = (
+    await Transaction.find({
+      trx_hash_bnb,
+      nft: ObjectId(nft_id),
+      transfer_status: 'pending',
+      buyer: web3.utils.toChecksumAddress(req.user.account_address),
+    }).limit(1)
+  )[0];
 
   if (!trxDoc) {
     return next(
@@ -823,7 +849,7 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
-  const duplicate = await NFT.findOne({ transfer_trx_id: trxDoc._id });
+  const duplicate = await NFT.exists({ transfer_trx_id: ObjectId(trxDoc._id) });
 
   if (duplicate) {
     return next(
@@ -1089,31 +1115,33 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     web3.utils.toChecksumAddress(minted_by) !==
     web3.utils.toChecksumAddress(nft.user[0].account_address)
   ) {
-    const result = await User.findOne(
-      {
-        account_address: minted_by,
-      },
-      {
-        name: 1,
-        username: 1,
-        first_name: 1,
-        last_name: 1,
-        account_address: 1,
-        profile_image: 1,
-        custom_image: 1,
-      }
-    );
+    const result = (
+      await User.find(
+        {
+          account_address: web3.utils.toChecksumAddress(minted_by),
+        },
+        {
+          name: 1,
+          username: 1,
+          first_name: 1,
+          last_name: 1,
+          account_address: 1,
+          profile_image: 1,
+          custom_image: 1,
+        }
+      ).limit(1)
+    )[0];
 
     modified_nft.minted_by = result;
   } else {
     modified_nft.minted_by = {
-      name: nft.user[0].name,
-      first_name: nft.user[0].first_name,
-      last_name: nft.user[0].last_name,
-      username: nft.user[0].username,
-      account_address: nft.user[0].account_address,
-      profile_image: nft.user[0].profile_image,
-      custom_image: nft.user[0].custom_image,
+      first_name: nft.user[0]._doc.first_name,
+      last_name: nft.user[0]._doc.last_name,
+      name: nft.user[0]._doc.name,
+      username: nft.user[0]._doc.username,
+      account_address: nft.user[0]._doc.account_address,
+      profile_image: nft.user[0]._doc.profile_image,
+      custom_image: nft.user[0]._doc.custom_image,
     };
   }
 
@@ -1552,9 +1580,11 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     }
 
     // Find if this trx_hash_bnb is never used before
-    const prevTrxDoc = await Transaction.findOne({
-      trx_hash_bnb: trx_hash_bnb.toLowerCase(),
-    });
+    const prevTrxDoc = (
+      await Transaction.find({
+        trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+      }).limit(1)
+    )[0];
 
     if (prevTrxDoc) {
       if (
@@ -2035,7 +2065,7 @@ exports.createBid = catchAsync(async (req, res, next) => {
   // Same user can't bid twice
   const prevBidSameUser = await Bid.exists({
     bid_status: 'current',
-    nft: nft.id,
+    nft: ObjectId(nft.id),
     bidder: web3.utils.toChecksumAddress(req.user.account_address),
   });
 
@@ -2062,7 +2092,7 @@ exports.createBid = catchAsync(async (req, res, next) => {
 
   // Find the previous highest bid of this NFT which is of bid_status = "current"
   const highestBid = (
-    await Bid.find({ status: 'current', nft: nft.id })
+    await Bid.find({ status: 'current', nft: ObjectId(nft.id) })
       .sort({ bid_price_ntr: -1 })
       .limit(1)
   )[0];
@@ -2109,14 +2139,16 @@ exports.getAllBidsForNFT = catchAsync(async (req, res, next) => {
   const { nft_id } = req.params;
 
   // Find Auction NFT By ID
-  const nft = await NFT.findOne({
-    id: nft_id,
-    selling_type: 'auction',
-    status: nftStatuses.FOR_SALE,
-    auction_end_time: {
-      $gt: new Date(),
-    },
-  });
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      selling_type: 'auction',
+      status: nftStatuses.FOR_SALE,
+      auction_end_time: {
+        $gt: new Date(),
+      },
+    }).limit(1)
+  )[0];
 
   if (!nft) {
     return next(
@@ -2202,7 +2234,7 @@ exports.updateBidForNFT = catchAsync(async (req, res, next) => {
   // Find Bid By ID
   const bid = (
     await Bid.find({
-      id: ObjectId(bid_id),
+      _id: ObjectId(bid_id),
       bid_status: 'current',
       bidder: web3.utils.toChecksumAddress(req.user.account_address),
     }).limit(1)
@@ -2215,7 +2247,7 @@ exports.updateBidForNFT = catchAsync(async (req, res, next) => {
   }
 
   const nft = await NFT.exists({
-    id: bid.nft,
+    _id: ObjectId(bid.nft),
     selling_type: 'auction',
     status: nftStatuses.FOR_SALE,
     auction_end_time: {

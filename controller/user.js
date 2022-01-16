@@ -32,9 +32,13 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
  */
 
 exports.getUserByAddress = catchAsync(async (req, res, next) => {
-  const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.account_address),
-  }).populate(userRoles.INFLUENCER);
+  const user = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(req.params.account_address),
+    })
+      .populate(userRoles.INFLUENCER)
+      .limit(1)
+  )[0];
 
   if (!user) {
     return next(

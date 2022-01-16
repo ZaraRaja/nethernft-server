@@ -147,15 +147,19 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
     );
   }
 
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.account),
-    status: 'rejected',
-  });
+  const influencer = (
+    await Influencer.find({
+      account_address: web3.utils.toChecksumAddress(req.params.account),
+      status: 'rejected',
+    }).limit(1)
+  )[0];
 
-  const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.account),
-    roles: userRoles.REJECTED_INFLUENCER,
-  });
+  const user = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(req.params.account),
+      roles: userRoles.REJECTED_INFLUENCER,
+    }).limit(1)
+  )[0];
 
   if (!influencer) {
     return next(
@@ -209,9 +213,11 @@ exports.updateInfluencer = catchAsync(async (req, res, next) => {
  */
 
 exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-  });
+  const influencer = (
+    await Influencer.find({
+      account_address: web3.utils.toChecksumAddress(req.params.address),
+    }).limit(1)
+  )[0];
 
   if (!influencer) {
     return next(
@@ -237,10 +243,11 @@ exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
  */
 
 exports.updateStatus = catchAsync(async (req, res, next) => {
-  console.log('****', req.body);
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-  });
+  const influencer = (
+    await Influencer.find({
+      account_address: web3.utils.toChecksumAddress(req.params.address),
+    }).limit(1)
+  )[0];
 
   if (!influencer) {
     return next(
@@ -272,9 +279,11 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
     );
   }
 
-  const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(influencer.account_address),
-  });
+  const user = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(influencer.account_address),
+    }).limit(1)
+  )[0];
 
   if (!user) {
     return next(
@@ -491,9 +500,11 @@ exports.follow = catchAsync(async (req, res, next) => {
     );
   }
 
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-  });
+  const influencer = (
+    await Influencer.find({
+      account_address: web3.utils.toChecksumAddress(req.params.address),
+    }).limit(1)
+  )[0];
 
   if (!influencer) {
     return next(
@@ -520,10 +531,12 @@ exports.follow = catchAsync(async (req, res, next) => {
   }
 
   // Check if the follow document exist for current follower and Influencer, if true then error
-  const followExist = await Following.findOne({
-    follower_address: web3.utils.toChecksumAddress(req.user.account_address),
-    influencer_address: web3.utils.toChecksumAddress(req.params.address),
-  });
+  const followExist = (
+    await Following.find({
+      follower_address: web3.utils.toChecksumAddress(req.user.account_address),
+      influencer_address: web3.utils.toChecksumAddress(req.params.address),
+    }).limit(1)
+  )[0];
 
   if (command == 'follow' && followExist) {
     return next(

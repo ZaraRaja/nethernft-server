@@ -1,3 +1,4 @@
+const { ObjectId } = require('mongoose').Types;
 const nftStatuses = require('../config/nft_statuses');
 const responseMessages = require('../config/response_messages');
 const web3 = require('../config/web3');
@@ -22,7 +23,10 @@ module.exports = async (nft_id) => {
     }
 
     // Get all bids of that NFT
-    const bids = await Bid.find({ nft: nft_id, bid_status: 'current' }).sort({
+    const bids = await Bid.find({
+      nft: ObjectId(nft_id),
+      bid_status: 'current',
+    }).sort({
       bid_price_ntr: -1,
     });
 

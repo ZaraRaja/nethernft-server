@@ -211,9 +211,13 @@ exports.login = catchAsync(async (req, res, next) => {
     );
   }
 
-  const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(account_address),
-  }).populate(userRoles.INFLUENCER);
+  const user = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(account_address),
+    })
+      .populate(userRoles.INFLUENCER)
+      .limit(1)
+  )[0];
 
   if (!user) {
     return next(
