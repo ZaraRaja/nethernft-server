@@ -2,6 +2,7 @@ const { isBefore } = require('date-fns');
 const { scheduleJob } = require('node-schedule');
 const NFT = require('../model/Nft');
 const Transaction = require('../model/Transaction');
+const Influencer = require('../model/Influencer');
 const Bid = require('../model/Bid');
 const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
@@ -1753,11 +1754,11 @@ exports.search = catchAsync(async (req, res, next) => {
       message: responseMessages.OK,
       message_description: 'Search Results!',
       count: 0,
-      results: { nfts: [], users: [] },
+      results: { nfts: [], influencers: [] },
     });
   }
 
-  const orUserFilter = [
+  const orInfluencersFilter = [
     {
       name: { $regex: req.query.q.toString(), $options: '$i' },
     },
@@ -1769,7 +1770,7 @@ exports.search = catchAsync(async (req, res, next) => {
     },
   ];
   if (req.query.q?.toString().trim().length >= 40) {
-    orUserFilter.push({
+    orInfluencersFilter.push({
       account_address: {
         $regex: req.query.q.toString(),
         $options: '$i',
@@ -1796,7 +1797,13 @@ exports.search = catchAsync(async (req, res, next) => {
     {
       $lookup: {
         from: User.collection.name,
-        pipeline: [],
+        pipeline: [
+          {
+            $match: {
+              roles: 'influencer',
+            },
+          },
+        ],
         as: 'users',
       },
     },
@@ -1809,11 +1816,11 @@ exports.search = catchAsync(async (req, res, next) => {
     { $replaceRoot: { newRoot: '$union' } },
     {
       $facet: {
-        users: [
+        influencers: [
           {
             $match: {
               token_name: { $exists: false },
-              $or: orUserFilter,
+              $or: orInfluencersFilter,
             },
           },
           {
@@ -1861,7 +1868,7 @@ exports.search = catchAsync(async (req, res, next) => {
     status: 'success',
     message: responseMessages.OK,
     message_description: 'Search Results!',
-    count: searchResults[0].users.length + searchResults[0].nfts.length,
+    count: searchResults[0].influencers.length + searchResults[0].nfts.length,
     results: searchResults[0],
   });
 });
