@@ -21,12 +21,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('tiny'));
 app.use(helmet());
+app.use((req, res, next) => {
+  if (req.query.q && req.query.q?.startsWith('0x')) {
+    req.query.q = req.query.q?.slice(2);
+  }
+  next();
+});
 app.use(
   queryParser({
     parseNull: true,
     parseUndefined: true,
     parseBoolean: true,
-    parseNumber: true, // TODO: solve the hex issue
+    parseNumber: true,
   })
 );
 
@@ -58,7 +64,6 @@ app.get('/api/s3-url', auth.authenticate, S3Controller.getS3UploadUrl);
 
 // NFT Routes
 app.get('/api/nfts', NFTController.getForSaleNFTs);
-app.get('/api/nfts/search-api', NFTController.searchWithAggregation);
 app.patch(
   '/api/nfts/update-price/:nft_id',
   auth.authenticate,
