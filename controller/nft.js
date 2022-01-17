@@ -1747,7 +1747,17 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
  */
 
 exports.search = catchAsync(async (req, res, next) => {
-  const searchApi = await User.aggregate([
+  console.log('queryyyyyy', req.query.q);
+  if (!req.query.q) {
+    return res.status(200).json({
+      status: 'success',
+      message: responseMessages.OK,
+      message_description: 'Search Results!',
+      count: 0,
+      results: { nfts: [], users: [] },
+    });
+  }
+  const searchResults = await User.aggregate([
     { $limit: 1 }, // 2. Keep only one document of the collection.
     { $project: { _id: '$$REMOVE' } }, // 3. Remove everything from the document.
 
@@ -1757,8 +1767,8 @@ exports.search = catchAsync(async (req, res, next) => {
         from: NFT.collection.name,
         pipeline: [
           {
-            $match: {status: nftStatuses.FOR_SALE,}
-          }
+            $match: { status: nftStatuses.FOR_SALE },
+          },
         ],
         as: 'nfts',
       },
@@ -1784,10 +1794,34 @@ exports.search = catchAsync(async (req, res, next) => {
             name: { $regex: req.query.q, $options: '$i' },
           },
           {
-            owner: { $regex: req.query.q, $options: '$i' },
+            first_name: { $regex: req.query.q, $options: '$i' },
           },
           {
-            account_address: { $regex: req.query.q, $options: '$i' },
+            last_name: { $regex: req.query.q, $options: '$i' },
+          },
+          {
+            account_address: {
+              $regex: req.query.q,
+              $options: '$i',
+            },
+          },
+        ],
+      },
+    },
+    {
+      $facet: {
+        users: [
+          {
+            $match: {
+              token_name: { $exists: false },
+            },
+          },
+        ],
+        nfts: [
+          {
+            $match: {
+              token_name: { $exists: true },
+            },
           },
         ],
       },
@@ -1796,10 +1830,10 @@ exports.search = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: 'success',
-    message: responseMessages.NFT_MINTED,
-    message: 'NFT Found successfully!',
-    count: searchApi.length,
-    nfts: searchApi,
+    message: responseMessages.OK,
+    message_description: 'Search Results!',
+    count: searchResults[0].users.length + searchResults[0].nfts.length,
+    results: searchResults[0],
   });
 });
 
