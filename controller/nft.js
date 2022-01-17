@@ -1816,11 +1816,29 @@ exports.search = catchAsync(async (req, res, next) => {
               token_name: { $exists: false },
             },
           },
+          {
+            $project: {
+              first_name: 1,
+              last_name: 1,
+              name: 1,
+              account_address: 1,
+              profile_image: 1,
+              custom_image: 1,
+            },
+          },
         ],
         nfts: [
           {
             $match: {
               token_name: { $exists: true },
+            },
+          },
+          {
+            $project: {
+              name: 1,
+              token_name: 1,
+              file_hash: 1,
+              file_format: 1,
             },
           },
         ],
