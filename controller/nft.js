@@ -1747,7 +1747,6 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
  */
 
 exports.search = catchAsync(async (req, res, next) => {
-  console.log('queryyyyyy', req.query.q);
   if (!req.query.q) {
     return res.status(200).json({
       status: 'success',
@@ -1757,6 +1756,27 @@ exports.search = catchAsync(async (req, res, next) => {
       results: { nfts: [], users: [] },
     });
   }
+
+  const orUserFilter = [
+    {
+      name: { $regex: req.query.q.toString(), $options: '$i' },
+    },
+    {
+      first_name: { $regex: req.query.q.toString(), $options: '$i' },
+    },
+    {
+      last_name: { $regex: req.query.q.toString(), $options: '$i' },
+    },
+  ];
+  if (req.query.q?.toString().trim().length >= 40) {
+    orUserFilter.push({
+      account_address: {
+        $regex: req.query.q.toString(),
+        $options: '$i',
+      },
+    });
+  }
+
   const searchResults = await User.aggregate([
     { $limit: 1 }, // 2. Keep only one document of the collection.
     { $project: { _id: '$$REMOVE' } }, // 3. Remove everything from the document.
@@ -1788,33 +1808,16 @@ exports.search = catchAsync(async (req, res, next) => {
     { $unwind: '$union' },
     { $replaceRoot: { newRoot: '$union' } },
     {
-      $match: {
-        $or: [
-          {
-            name: { $regex: req.query.q, $options: '$i' },
-          },
-          {
-            first_name: { $regex: req.query.q, $options: '$i' },
-          },
-          {
-            last_name: { $regex: req.query.q, $options: '$i' },
-          },
-          {
-            account_address: {
-              $regex: req.query.q,
-              $options: '$i',
-            },
-          },
-        ],
-      },
-    },
-    {
       $facet: {
         users: [
           {
             $match: {
               token_name: { $exists: false },
+              $or: orUserFilter,
             },
+          },
+          {
+            $limit: 4,
           },
           {
             $project: {
@@ -1831,7 +1834,15 @@ exports.search = catchAsync(async (req, res, next) => {
           {
             $match: {
               token_name: { $exists: true },
+              $or: [
+                {
+                  name: { $regex: req.query.q.toString(), $options: '$i' },
+                },
+              ],
             },
+          },
+          {
+            $limit: 4,
           },
           {
             $project: {
