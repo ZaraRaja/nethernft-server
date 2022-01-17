@@ -69,4 +69,10 @@ module.exports = {
   PREVIOUS_LISTING_VERIFIED: 'previous_listing_verified',
   TRX_HASH_USED_IN_ANOTHER_LISTING: 'trx_hash_used_in_another_listing',
   NFT_PRICE_UPDATED: 'nft_price_updated',
+  FORBIDDEN: 'forbidden',
+  BID_CREATED: 'bid_created',
+  BID_NOT_FOUND: 'bid_not_found',
+  BID_UPDATED: 'bid_updated',
+  INFLUENCER_UPDATED: 'influencer_updated',
+  SELLING_TYPE_CHANGED: 'selling_type_changed',
 };

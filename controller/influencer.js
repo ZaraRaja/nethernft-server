@@ -1,6 +1,7 @@
 const responseMessages = require('../config/response_messages');
 const User = require('../model/User');
 const Influencer = require('../model/Influencer');
+const NFT = require('../model/Nft');
 const userRoles = require('../config/user_roles');
 const Crud = require('../services/Crud');
 const catchAsync = require('../utils/catch_async');
@@ -117,14 +118,48 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
 });
 
 /**
- * GET
- * Fetching Influncer based on Address
+ * UPDATE
+ * Updating an Influncer
  */
+exports.updateInfluencer = catchAsync(async (req, res, next) => {
+  console.log('Req.body', req.body);
+  const {
+    short_bio,
+    field,
+    email,
+    username,
+    cover_image,
+    website_url,
+    youtube_channel_url,
+    facebook_username,
+    twitch_username,
+    snapchat_username,
+    instagram_username,
+  } = req.body;
 
-exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-  });
+  if (!short_bio?.trim() || !cover_image?.trim() || !field?.trim()) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'cover_image, short_bio, and field are required!',
+        400
+      )
+    );
+  }
+
+  const influencer = (
+    await Influencer.find({
+      account_address: web3.utils.toChecksumAddress(req.params.account),
+      status: 'rejected',
+    }).limit(1)
+  )[0];
+
+  const user = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(req.params.account),
+      roles: userRoles.REJECTED_INFLUENCER,
+    }).limit(1)
+  )[0];
 
   if (!influencer) {
     return next(
@@ -136,24 +171,53 @@ exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (!user) {
+    return next(
+      new AppError(responseMessages.USER_NOT_FOUND, 'User does not exist!', 404)
+    );
+  }
+
+  console.log('User', user);
+
+  influencer.short_bio = short_bio;
+  influencer.field = field;
+  influencer.cover_image = cover_image;
+  influencer.website_url = website_url;
+  influencer.youtube_channel_url = youtube_channel_url;
+  influencer.facebook_username = facebook_username;
+  influencer.twitch_username = twitch_username;
+  influencer.snapchat_username = snapchat_username;
+  influencer.instagram_username = instagram_username;
+  influencer.status = 'pending';
+  const saved_influencer = await influencer.save();
+  user.roles.push(userRoles.PENDING_INFLUENCER);
+  user.email = email;
+  user.username = username;
+  // user.profile_image = profile_image;
+  const index = user.roles.indexOf('rejected_influencer');
+  user.roles.splice(index, 1);
+  await user.save();
+
+  console.log('Updete', saved_influencer);
   res.status(200).json({
     status: 'success',
-    message: responseMessages.OK,
-    message_description: `Influencer with Address: ${req.params.address}`,
-    influencer,
+    message: responseMessages.INFLUENCER_UPDATED,
+    message_description: 'Your request is submitted to become an Influencer!',
+    user: user,
   });
 });
 
 /**
  * GET
- * Get Influencer Details Along with his deployed NFTs
+ * Fetching Influncer based on Address
  */
 
-exports.getInfluencerWithNfts = catchAsync(async (req, res, next) => {
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-    status: nftStatuses.FOR_SALE,
-  }).populate('nfts');
+exports.getInfluencerByAddress = catchAsync(async (req, res, next) => {
+  const influencer = (
+    await Influencer.find({
+      account_address: web3.utils.toChecksumAddress(req.params.address),
+    }).limit(1)
+  )[0];
 
   if (!influencer) {
     return next(
@@ -179,9 +243,11 @@ exports.getInfluencerWithNfts = catchAsync(async (req, res, next) => {
  */
 
 exports.updateStatus = catchAsync(async (req, res, next) => {
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-  });
+  const influencer = (
+    await Influencer.find({
+      account_address: web3.utils.toChecksumAddress(req.params.address),
+    }).limit(1)
+  )[0];
 
   if (!influencer) {
     return next(
@@ -213,9 +279,11 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
     );
   }
 
-  const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(influencer.account_address),
-  });
+  const user = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(influencer.account_address),
+    }).limit(1)
+  )[0];
 
   if (!user) {
     return next(
@@ -233,8 +301,10 @@ exports.updateStatus = catchAsync(async (req, res, next) => {
   if (req.body.status === 'approved') {
     user.roles.push(userRoles.INFLUENCER);
   }
+  if (req.body.status === 'rejected') {
+    user.roles.push(userRoles.REJECTED_INFLUENCER);
+  }
   influencer.status = req.body.status;
-
   await user.save();
   const saved_influencer = await influencer.save();
 
@@ -269,7 +339,7 @@ exports.getAllInfluencers = catchAsync(async (req, res, next) => {
  * Get Top Influncer details
  */
 exports.getTopInfluencers = catchAsync(async (req, res, next) => {
-  const influencers = await Transaction.aggregate([
+  let influencers = await Transaction.aggregate([
     {
       $match: {
         trx_type: 'transfer',
@@ -324,11 +394,59 @@ exports.getTopInfluencers = catchAsync(async (req, res, next) => {
         account_address: '$_id',
         username: '$user.username',
         name: '$user.name',
+        first_name: '$user.first_name',
+        last_name: '$user.last_name',
         profile_image: '$user.profile_image',
+        custom_image: '$user.custom_image',
         field: '$influencer.field',
       },
     },
   ]);
+
+  if (influencers.length < 10) {
+    const res = await Influencer.aggregate([
+      {
+        $match: {
+          account_address: { $nin: influencers.map((i) => i.account_address) },
+          status: 'approved',
+        },
+      },
+      {
+        $limit: 10 - influencers.length,
+      },
+      {
+        $lookup: {
+          from: User.collection.name,
+          localField: 'account_address',
+          foreignField: 'account_address',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $project: {
+          _id: 0,
+          account_address: '$account_address',
+          username: '$user.username',
+          name: '$user.name',
+          first_name: '$user.first_name',
+          last_name: '$user.last_name',
+          profile_image: '$user.profile_image',
+          custom_image: '$user.custom_image',
+          field: '$field',
+        },
+      },
+      {
+        $addFields: {
+          sale_amount: 0,
+        },
+      },
+    ]);
+
+    influencers = [...influencers, ...res];
+  }
 
   res.status(200).json({
     status: 'success',
@@ -382,19 +500,11 @@ exports.follow = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (req.user.roles.includes(userRoles.INFLUENCER)) {
-    return next(
-      new AppError(
-        responseMessages.INFLUENCER_CANNOT_FOLLOW,
-        'Influencer cannot Follow anyone!',
-        400
-      )
-    );
-  }
-
-  const influencer = await Influencer.findOne({
-    account_address: web3.utils.toChecksumAddress(req.params.address),
-  });
+  const influencer = (
+    await Influencer.find({
+      account_address: web3.utils.toChecksumAddress(req.params.address),
+    }).limit(1)
+  )[0];
 
   if (!influencer) {
     return next(
@@ -421,10 +531,12 @@ exports.follow = catchAsync(async (req, res, next) => {
   }
 
   // Check if the follow document exist for current follower and Influencer, if true then error
-  const followExist = await Following.findOne({
-    follower_address: web3.utils.toChecksumAddress(req.user.account_address),
-    influencer_address: web3.utils.toChecksumAddress(req.params.address),
-  });
+  const followExist = (
+    await Following.find({
+      follower_address: web3.utils.toChecksumAddress(req.user.account_address),
+      influencer_address: web3.utils.toChecksumAddress(req.params.address),
+    }).limit(1)
+  )[0];
 
   if (command == 'follow' && followExist) {
     return next(
@@ -455,7 +567,20 @@ exports.follow = catchAsync(async (req, res, next) => {
     });
     await new_doc.save();
   } else {
-    await followExist.remove();
+    if (
+      web3.utils.toChecksumAddress(req.user.account_address) ===
+      web3.utils.toChecksumAddress(followExist.follower_address)
+    ) {
+      await followExist.remove();
+    } else {
+      return next(
+        new AppError(
+          responseMessages.UNAUTHORIZED,
+          'You can not unfollow!',
+          403
+        )
+      );
+    }
   }
 
   res.status(200).json({
@@ -497,8 +622,11 @@ exports.getFollowersByAddress = catchAsync(async (req, res, next) => {
       $project: {
         _id: 0,
         username: '$follower.username',
-        name: '$follower.username',
+        name: '$follower.name',
+        first_name: '$follower.first_name',
+        last_name: '$follower.last_name',
         profile_image: '$follower.profile_image',
+        custom_image: '$follower.custom_image',
         account_address: '$follower.account_address',
         roles: '$follower.roles',
         createdAt: 1,
@@ -511,5 +639,66 @@ exports.getFollowersByAddress = catchAsync(async (req, res, next) => {
     message: responseMessages.OK,
     message_description: 'All Followers',
     followers,
+  });
+});
+
+/**
+ * Get
+ * Getting All Influencer details For Admin
+ */
+
+exports.getAllInfluencerDetails = catchAsync(async (req, res, next) => {
+  const options = {
+    page: req.query.page,
+    limit: req.query.limit,
+  };
+
+  const influencerData = await User.aggregatePaginate(
+    User.aggregate([
+      {
+        $lookup: {
+          from: Influencer.collection.name,
+          localField: 'influencer',
+          foreignField: '_id',
+          as: 'influencer',
+        },
+      },
+      {
+        $unwind: '$influencer',
+      },
+      {
+        $sort: {
+          updatedAt: -1,
+        },
+      },
+      {
+        $project: {
+          name: 1,
+          first_name: 1,
+          last_name: 1,
+          account_address: 1,
+          email: 1,
+          influencer_updatedAt: '$influencer.updatedAt',
+          influencer_id: '$influencer._id',
+          influencer_status: '$influencer.status',
+        },
+      },
+    ]),
+    options
+  );
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Influencers Details',
+    totalinfluencerData: influencerData.totalDocs,
+    totalPages: influencerData.totalPages,
+    page: influencerData.page,
+    limit: influencerData.limit,
+    pagingCounter: influencerData.pagingCounter,
+    hasPreviousPage: influencerData.hasPrevPage,
+    hasNextPage: influencerData.hasNextPage,
+    previousPage: influencerData.prevPage,
+    nextPage: influencerData.nextPage,
+    influencers: influencerData.docs,
   });
 });

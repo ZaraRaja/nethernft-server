@@ -28,6 +28,13 @@ const nftSchema = new mongoose.Schema(
       type: Number,
       min: 0.1,
     },
+    starting_price_ntr: {
+      type: Number,
+      min: 0.1,
+    },
+    auction_end_time: {
+      type: Date,
+    },
     metadata_hash: {
       type: String,
       trim: true, // should be unique
@@ -45,6 +52,36 @@ const nftSchema = new mongoose.Schema(
       trim: true,
       enum: [nftStatuses.FOR_SALE, nftStatuses.NOT_FOR_SALE],
       required: [true, 'Please provide NFT status!'],
+    },
+    selling_type: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      enum: ['auction', 'fixed_price'],
+    },
+    auction_status: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      enum: ['complete', 'live'], // This field created to be used only in job scheduling
+    },
+    category: {
+      type: String,
+      trim: true,
+      enum: [
+        'music',
+        'arts',
+        'collectibles',
+        'photography',
+        'sports',
+        'trading cards',
+        'utilities',
+        'virtual worlds',
+        'science',
+        'religion',
+        'others',
+      ],
+      lowercase: true,
     },
     owner: {
       type: String,

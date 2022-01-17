@@ -61,13 +61,27 @@ exports.signup = catchAsync(async (req, res, next) => {
     );
   }
 
-  const { account_address, username, name, email, profile_image } = req.body;
+  const {
+    account_address,
+    username,
+    first_name,
+    last_name,
+    email,
+    profile_image,
+  } = req.body;
 
-  if (!account_address || !username || !name || !email || !profile_image) {
+  if (
+    !account_address ||
+    !username ||
+    !first_name ||
+    !last_name ||
+    !email ||
+    !profile_image
+  ) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'Account account_address, Username, Email, and Profile Image are required fields!',
+        'account_address, Username, Email, and Profile Image are required fields!',
         400
       )
     );
@@ -86,7 +100,8 @@ exports.signup = catchAsync(async (req, res, next) => {
   const new_user = new User({
     account_address: web3.utils.toChecksumAddress(account_address),
     username,
-    name,
+    first_name,
+    last_name,
     email,
     profile_image: `uploads/profiles/${profile_image}`,
     nonce: await getNonce(),
@@ -196,9 +211,13 @@ exports.login = catchAsync(async (req, res, next) => {
     );
   }
 
-  const user = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(account_address),
-  }).populate(userRoles.INFLUENCER);
+  const user = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(account_address),
+    })
+      .populate(userRoles.INFLUENCER)
+      .limit(1)
+  )[0];
 
   if (!user) {
     return next(

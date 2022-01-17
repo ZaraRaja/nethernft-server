@@ -1,125 +1,17 @@
+const { isBefore } = require('date-fns');
+const { scheduleJob } = require('node-schedule');
 const NFT = require('../model/Nft');
 const Transaction = require('../model/Transaction');
+const Bid = require('../model/Bid');
 const responseMessages = require('../config/response_messages');
 const catchAsync = require('../utils/catch_async');
 const AppError = require('../utils/AppError');
+const completeAuction = require('../utils/complete_auction');
 const web3 = require('../config/web3');
 const nftStatuses = require('../config/nft_statuses');
 const User = require('../model/User');
 const { ObjectId } = require('mongoose').Types;
-const ntrContract = require('../config/ntr_contract');
-const ntrContractAddress = process.env.NTR_CONTRACT_ADDRESS;
-
-async function sendNTR(ntr_amount, to) {
-  const sender = process.env.ADMIN_ACCOUNT_FOR_BNB_FEE;
-  let chainId = 97;
-  if (process.env.NODE_ENV === 'production') {
-    chainId = 56;
-  }
-
-  var count = await web3.eth.getTransactionCount(`${sender}`);
-
-  let value = web3.utils.toWei(`${ntr_amount}`, 'ether');
-
-  let gasLimit = '';
-  try {
-    gasLimit = await web3.eth.estimateGas({
-      from: `${sender}`,
-      nonce: web3.utils.toHex(count),
-      to: `${ntrContractAddress}`,
-      data: ntrContract.methods.transfer(`${to}`, value).encodeABI(),
-      chainId: web3.utils.toHex(chainId),
-    });
-  } catch (error) {
-    throw error;
-  }
-
-  var trxObj = {
-    from: `${sender}`,
-    nonce: web3.utils.toHex(count),
-    gasPrice: '0x00000002540BE400',
-    gasLimit: gasLimit,
-    to: `${ntrContractAddress}`,
-    value: '0x0',
-    data: ntrContract.methods.transfer(`${to}`, value).encodeABI(),
-    chainId: chainId,
-    common: {
-      customChain: {
-        chainId,
-        networkId: chainId,
-      },
-    },
-  };
-
-  // Sign Transaction
-  const rawTransaction = (
-    await web3.eth.accounts.signTransaction(
-      trxObj,
-      process.env.ADMIN_ACCOUNT_FOR_BNB_FEE_PRIVATE_KEY
-    )
-  ).rawTransaction;
-
-  try {
-    return await web3.eth.sendSignedTransaction(rawTransaction);
-  } catch (error) {
-    throw error;
-  }
-}
-
-async function sendBNB(bnb_amount, to) {
-  const sender = process.env.ADMIN_ACCOUNT_FOR_BNB_FEE;
-  let chainId = 97;
-  if (process.env.NODE_ENV === 'production') {
-    chainId = 56;
-  }
-
-  var count = await web3.eth.getTransactionCount(`${sender}`);
-
-  let value = web3.utils.toWei(`${bnb_amount}`, 'ether');
-
-  let gasLimit = '';
-  try {
-    gasLimit = await web3.eth.estimateGas({
-      from: `${sender}`,
-      nonce: web3.utils.toHex(count),
-      to: `${to}`,
-      value: web3.utils.toHex(value),
-      chainId: web3.utils.toHex(chainId),
-    });
-  } catch (error) {
-    throw error;
-  }
-
-  var trxObj = {
-    from: `${sender}`,
-    nonce: web3.utils.toHex(count),
-    gasPrice: '0x00000002540BE400',
-    gasLimit: gasLimit,
-    to: `${to}`,
-    value: web3.utils.toHex(value),
-    chainId: chainId,
-    common: {
-      customChain: {
-        chainId,
-        networkId: chainId,
-      },
-    },
-  };
-
-  // Sign Transaction
-  const rawTransaction = (
-    await web3.eth.accounts.signTransaction(
-      trxObj,
-      process.env.ADMIN_ACCOUNT_FOR_BNB_FEE_PRIVATE_KEY
-    )
-  ).rawTransaction;
-
-  try {
-    return await web3.eth.sendSignedTransaction(rawTransaction);
-  } catch (error) {
-    throw error;
-  }
-}
+const { sendBNB, sendNTR } = require('../utils/send_crypto');
 
 /**
  * GET
@@ -139,12 +31,16 @@ exports.verifyPreviousMintTrx = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await Transaction.findOne({
-    nft: nft_id,
-    trx_type: 'mint',
-    mint_status: 'pending',
-    minted_by: web3.utils.toChecksumAddress(req.user.account_address),
-  }).populate('nft');
+  const trxDoc = (
+    await Transaction.find({
+      nft: ObjectId(nft_id),
+      trx_type: 'mint',
+      mint_status: 'pending',
+      minted_by: web3.utils.toChecksumAddress(req.user.account_address),
+    })
+      .populate('nft')
+      .limit(1)
+  )[0];
 
   if (!trxDoc) {
     return next(
@@ -227,9 +123,11 @@ exports.mint = catchAsync(async (req, res, next) => {
     );
   }
 
-  const prevTrxDoc = await Transaction.findOne({
-    trx_hash_bnb: trx_hash_bnb.toLowerCase(),
-  });
+  const prevTrxDoc = (
+    await Transaction.find({
+      trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+    }).limit(1)
+  )[0];
 
   if (prevTrxDoc) {
     if (
@@ -307,50 +205,139 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     nft_id,
     mint_trx_id,
     name,
+    category,
     description,
     token_name,
     file_hash,
     file_format,
     metadata_hash,
+    selling_type,
   } = req.body;
-  let { price_in_ntr } = req.body;
+  let { price_in_ntr, starting_price_ntr, auction_end_time } = req.body;
 
   if (
-    !nft_id.trim() ||
-    !mint_trx_id.trim() ||
-    !name.trim() ||
-    !description.trim() ||
-    !token_name.trim() ||
-    !price_in_ntr ||
-    !file_hash.trim() ||
-    !file_format.trim() ||
-    !metadata_hash.trim()
+    !nft_id?.trim() ||
+    !mint_trx_id?.trim() ||
+    !name?.trim() ||
+    !description?.trim() ||
+    !token_name?.trim() ||
+    !file_hash?.trim() ||
+    !file_format?.trim() ||
+    !metadata_hash?.trim() ||
+    !selling_type?.trim() ||
+    !category?.trim()
   ) {
     return next(
       new AppError(
         responseMessages.MISSING_REQUIRED_FIELDS,
-        'NFT ID, Mint Trx ID, Name, description, token name, price in NTR, file hash, file format, and metadata hash fields are required!',
+        'NFT ID, Mint Trx ID, Name, description, token name, file hash, file format, metadata hash fields, and selling type are required!',
         400
       )
     );
   }
 
-  price_in_ntr = Number(price_in_ntr);
-
-  if (isNaN(price_in_ntr)) {
+  if (
+    selling_type?.toLowerCase() !== 'fixed_price' &&
+    selling_type?.toLowerCase() !== 'auction'
+  ) {
     return next(
       new AppError(
-        responseMessages.INVALID_VALUE_TYPE,
-        'Price in NTR should be numbers!',
+        responseMessages.INVALID_VALUE,
+        'Invalid value for selling type!',
         400
       )
     );
   }
-  let duplicate_nft = await NFT.findOne().or([
-    { token_name: token_name.toUpperCase() },
-    { metadata_hash },
-    { file_hash },
-  ]);
+
+  if (!/^[A-Z0-9_.]*$/.test(token_name)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'NFT Symbol can contain Alphabets, numbers and _ .',
+        400
+      )
+    );
+  }
+
+  if (
+    selling_type.toLowerCase() === 'auction' &&
+    (!starting_price_ntr || !auction_end_time)
+  ) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Starting price and End Time are required for auction NFT!',
+        400
+      )
+    );
+  }
+
+  if (selling_type.toLowerCase() === 'fixed_price' && !price_in_ntr) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Price in NTR is required for fixed price NFT!',
+        400
+      )
+    );
+  }
+
+  if (selling_type.toLowerCase() === 'auction') {
+    starting_price_ntr = Number(starting_price_ntr);
+    auction_end_time = Number(auction_end_time);
+
+    if (isNaN(starting_price_ntr)) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE_TYPE,
+          'Starting Price in NTR should be number!',
+          400
+        )
+      );
+    }
+
+    if (isNaN(auction_end_time)) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE_TYPE,
+          'Auction end time should be number!',
+          400
+        )
+      );
+    }
+
+    if (isBefore(new Date(auction_end_time), new Date())) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE,
+          'Auction end time should be in future!',
+          400
+        )
+      );
+    }
+  } else {
+    price_in_ntr = Number(price_in_ntr);
+
+    if (isNaN(price_in_ntr)) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE_TYPE,
+          'Price in NTR should be number!',
+          400
+        )
+      );
+    }
+  }
+
+  let duplicate_nft = (
+    await NFT.find()
+      .or([
+        { token_name: token_name.toUpperCase() },
+        { metadata_hash },
+        { file_hash },
+      ])
+      .limit(1)
+  )[0];
 
   if (duplicate_nft) {
     return next(
@@ -364,11 +351,13 @@ exports.completeMint = catchAsync(async (req, res, next) => {
 
   owner = web3.utils.toChecksumAddress(req.user.account_address);
 
-  const nft = await NFT.findOne({
-    id: nft_id,
-    mint_trx_id,
-    owner,
-  });
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      mint_trx_id,
+      owner,
+    }).limit(1)
+  )[0];
 
   if (!nft) {
     return next(
@@ -376,12 +365,14 @@ exports.completeMint = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await Transaction.findOne({
-    _id: mint_trx_id,
-    nft: nft_id,
-    trx_type: 'mint',
-    minted_by: owner,
-  });
+  const trxDoc = (
+    await Transaction.find({
+      _id: ObjectId(mint_trx_id),
+      nft: ObjectId(nft_id),
+      trx_type: 'mint',
+      minted_by: owner,
+    }).limit(1)
+  )[0];
 
   if (!trxDoc) {
     return next(
@@ -392,6 +383,7 @@ exports.completeMint = catchAsync(async (req, res, next) => {
       )
     );
   }
+
   if (trxDoc.mint_status !== 'pending') {
     return next(
       new AppError(
@@ -405,12 +397,27 @@ exports.completeMint = catchAsync(async (req, res, next) => {
   nft.name = name;
   nft.description = description;
   nft.token_name = token_name;
-  nft.price_in_ntr = price_in_ntr;
+  nft.category = category;
   nft.file_hash = file_hash;
   nft.file_format = file_format;
   nft.metadata_hash = metadata_hash;
   nft.owner = owner;
   nft.status = nftStatuses.FOR_SALE;
+  nft.selling_type = selling_type;
+
+  if (selling_type.toLowerCase() === 'auction') {
+    nft.auction_status = 'live';
+    nft.starting_price_ntr = starting_price_ntr;
+    nft.auction_end_time = new Date(auction_end_time);
+
+    // Run the job for this auction
+    scheduleJob(nft.id, nft.auction_end_time, () => {
+      // Call the completeAuction function at specified time
+      completeAuction(nft.id);
+    });
+  } else {
+    nft.price_in_ntr = price_in_ntr;
+  }
 
   trxDoc.mint_status = 'complete';
 
@@ -444,12 +451,16 @@ exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await Transaction.findOne({
-    nft: nft_id,
-    trx_type: 'transfer',
-    transfer_status: 'pending',
-    buyer: web3.utils.toChecksumAddress(req.user.account_address),
-  }).populate('nft');
+  const trxDoc = (
+    await Transaction.find({
+      nft: ObjectId(nft_id),
+      trx_type: 'transfer',
+      transfer_status: 'pending',
+      buyer: web3.utils.toChecksumAddress(req.user.account_address),
+    })
+      .populate('nft')
+      .limit(1)
+  )[0];
 
   if (!trxDoc) {
     return next(
@@ -485,6 +496,16 @@ exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
     );
   }
 
+  if (trxDoc.nft.selling_type && trxDoc.nft.selling_type !== 'fixed_price') {
+    return next(
+      new AppError(
+        responseMessages.PENDING_TRANSFER_NOT_FOUND,
+        'NFT not of type fixed price can not be transferred from this route!',
+        404
+      )
+    );
+  }
+
   res.status(200).json({
     status: 'success',
     message: responseMessages.PENDING_TRANSFER_VERIFIED,
@@ -495,7 +516,7 @@ exports.verifyPreviousTransferTrx = catchAsync(async (req, res, next) => {
 
 /**
  * POST
- * Transfering an NFT
+ * Transfering an NFT of type fixed_price
  */
 
 exports.transfer = catchAsync(async (req, res, next) => {
@@ -525,6 +546,16 @@ exports.transfer = catchAsync(async (req, res, next) => {
       new AppError(
         responseMessages.NFT_NOT_FOR_SALE,
         'NFT is not listed for sale!',
+        403
+      )
+    );
+  }
+
+  if (nft.selling_type && nft.selling_type !== 'fixed_price') {
+    return next(
+      new AppError(
+        responseMessages.FORBIDDEN,
+        'NFT not of type fixed price can not be transferred from this route!',
         403
       )
     );
@@ -564,9 +595,11 @@ exports.transfer = catchAsync(async (req, res, next) => {
     );
   }
 
-  const prevTrxDoc = await Transaction.findOne({
-    trx_hash_bnb: trx_hash_bnb.toLowerCase(),
-  });
+  const prevTrxDoc = (
+    await Transaction.find({
+      trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+    }).limit(1)
+  )[0];
 
   if (prevTrxDoc) {
     if (
@@ -628,7 +661,7 @@ exports.transfer = catchAsync(async (req, res, next) => {
 
 /**
  * PATCH
- * update the nft price
+ * update the price of fixed_price NFT
  */
 exports.updatePrice = catchAsync(async (req, res, next) => {
   let { price_in_ntr } = req.body;
@@ -656,10 +689,12 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await NFT.findOne({
-    _id: nft_id,
-    owner: web3.utils.toChecksumAddress(req.user.account_address),
-  });
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      owner: web3.utils.toChecksumAddress(req.user.account_address),
+    }).limit(1)
+  )[0];
 
   if (!nft) {
     return next(
@@ -667,7 +702,25 @@ exports.updatePrice = catchAsync(async (req, res, next) => {
     );
   }
 
-  nft.price_in_ntr = price_in_ntr;
+  if (nft.selling_type && nft.selling_type === 'auction') {
+    if (isBefore(new Date(), new Date(nft.auction_end_time))) {
+      return next(
+        new AppError(
+          responseMessages.FORBIDDEN,
+          'Price can not be changed for while auction is live!',
+          403
+        )
+      );
+    }
+
+    nft.starting_price_ntr = price_in_ntr;
+    nft.price_in_ntr = null;
+  } else {
+    nft.selling_type = 'fixed_price';
+    nft.price_in_ntr = price_in_ntr;
+    nft.starting_price_ntr = null;
+  }
+
   const savedNft = await nft.save();
 
   res.status(200).json({
@@ -732,12 +785,24 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
-  const trxDoc = await Transaction.findOne({
-    trx_hash_bnb,
-    nft: nft_id,
-    transfer_status: 'pending',
-    buyer: web3.utils.toChecksumAddress(req.user.account_address),
-  });
+  if (nft.selling_type && nft.selling_type !== 'fixed_price') {
+    return next(
+      new AppError(
+        responseMessages.FORBIDDEN,
+        'NFT not of type fixed price can not be transferred from this route!',
+        403
+      )
+    );
+  }
+
+  const trxDoc = (
+    await Transaction.find({
+      trx_hash_bnb,
+      nft: ObjectId(nft_id),
+      transfer_status: 'pending',
+      buyer: web3.utils.toChecksumAddress(req.user.account_address),
+    }).limit(1)
+  )[0];
 
   if (!trxDoc) {
     return next(
@@ -784,7 +849,7 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
     );
   }
 
-  const duplicate = await NFT.findOne({ transfer_trx_id: trxDoc._id });
+  const duplicate = await NFT.exists({ transfer_trx_id: ObjectId(trxDoc._id) });
 
   if (duplicate) {
     return next(
@@ -856,32 +921,126 @@ exports.transferComplete = catchAsync(async (req, res, next) => {
  * Getting All Nfts For Sale
  */
 
-exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
-  const skipValue = req.query.skip || 0;
-  const limitValue = req.query.limit || 10;
+async function paginatedResults(req, model, filter, options = {}) {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+
+  const results = {};
+
+  const count = await model.countDocuments(filter).exec();
+
+  if (endIndex < count) {
+    results.next = {
+      page: page + 1,
+      limit: limit,
+    };
+  }
+
+  if (startIndex > 0) {
+    results.previous = {
+      page: page - 1,
+      limit: limit,
+    };
+  }
+  try {
+    let dbQuery = model
+      .find(filter)
+      .populate('user', {
+        account_address: 1,
+        name: 1,
+        first_name: 1,
+        last_name: 1,
+        profile_image: 1,
+        custom_image: 1,
+      })
+      .limit(limit)
+      .skip(startIndex);
+    if (options.sort) {
+      dbQuery = dbQuery.sort(options.sort);
+    }
+
+    results.nfts = await dbQuery.exec();
+    return results;
+  } catch (e) {
+    throw e;
+  }
+}
+
+exports.getForSaleNFTs = catchAsync(async (req, res) => {
   const file_format = req.query.file_format || 'all';
-  const dbQuery = NFT.find({ status: nftStatuses.FOR_SALE }).populate('user', {
-    account_address: 1,
-    name: 1,
-    profile_image: 1,
-  });
-  let result = [];
-  if (file_format === 'all') {
-    result = await dbQuery.skip(skipValue).limit(limitValue).exec();
+  const category = req.query.category || 'all';
+
+  const filter = {
+    status: nftStatuses.FOR_SALE,
+    $or: [
+      {
+        selling_type: {
+          $exists: false,
+        },
+      },
+      {
+        selling_type: {
+          $exists: true,
+          $eq: 'fixed_price',
+        },
+      },
+      {
+        $and: [
+          {
+            selling_type: {
+              $exists: true,
+              $eq: 'auction',
+            },
+          },
+          {
+            auction_end_time: {
+              $gt: new Date(),
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  let result;
+  if (file_format === 'all' && category === 'all') {
+    result = await paginatedResults(req, NFT, filter);
+  } else if (file_format === 'all' && category === 'new') {
+    result = await paginatedResults(req, NFT, filter, {
+      sort: { createdAt: -1 },
+    });
+  } else if (
+    file_format === 'all' &&
+    category !== 'all' &&
+    category !== 'new'
+  ) {
+    result = await paginatedResults(req, NFT, { ...filter, category });
+  } else if (file_format !== 'all' && category === 'all') {
+    result = await paginatedResults(req, NFT, { ...filter, file_format });
+  } else if (file_format !== 'all' && category === 'new') {
+    result = await paginatedResults(
+      req,
+      NFT,
+      { ...filter, file_format },
+      { sort: { createdAt: -1 } }
+    );
   } else {
-    result = await dbQuery
-      .where({ file_format: file_format })
-      .skip(skipValue)
-      .limit(limitValue)
-      .exec();
+    result = await paginatedResults(req, NFT, {
+      ...filter,
+      category,
+      file_format,
+    });
   }
 
   res.status(200).json({
     status: 'success',
     message: responseMessages.OK,
     message_description: 'All NFTs',
-    count: result.length,
-    nfts: result,
+    count: result.nfts.length,
+    data: result,
   });
 });
 
@@ -890,12 +1049,19 @@ exports.getForSaleNFTs = catchAsync(async (req, res, next) => {
  * Getting All Nfts By Address
  */
 
-exports.getAllNftsByAddress = catchAsync(async (req, res, next) => {
+exports.getAllNftsByAddress = catchAsync(async (req, res) => {
   let nfts = await NFT.find({
     owner: web3.utils.toChecksumAddress(req.params.account_address),
   })
     .populate('mint_trx_id')
-    .populate('user', { name: 1, account_address: 1, profile_image: 1 });
+    .populate('user', {
+      name: 1,
+      first_name: 1,
+      last_name: 1,
+      account_address: 1,
+      profile_image: 1,
+      custom_image: 1,
+    });
 
   nfts = nfts.filter((N) => {
     return N.mint_trx_id.mint_status === 'complete';
@@ -949,19 +1115,33 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
     web3.utils.toChecksumAddress(minted_by) !==
     web3.utils.toChecksumAddress(nft.user[0].account_address)
   ) {
-    const result = await User.findOne(
-      {
-        account_address: minted_by,
-      },
-      { username: 1, account_address: 1, profile_image: 1 }
-    );
+    const result = (
+      await User.find(
+        {
+          account_address: web3.utils.toChecksumAddress(minted_by),
+        },
+        {
+          name: 1,
+          username: 1,
+          first_name: 1,
+          last_name: 1,
+          account_address: 1,
+          profile_image: 1,
+          custom_image: 1,
+        }
+      ).limit(1)
+    )[0];
 
     modified_nft.minted_by = result;
   } else {
     modified_nft.minted_by = {
-      username: nft.user[0].username,
-      account_address: nft.user[0].account_address,
-      profile_image: nft.user[0].profile_image,
+      first_name: nft.user[0]._doc.first_name,
+      last_name: nft.user[0]._doc.last_name,
+      name: nft.user[0]._doc.name,
+      username: nft.user[0]._doc.username,
+      account_address: nft.user[0]._doc.account_address,
+      profile_image: nft.user[0]._doc.profile_image,
+      custom_image: nft.user[0]._doc.custom_image,
     };
   }
 
@@ -977,8 +1157,8 @@ exports.getOneNft = catchAsync(async (req, res, next) => {
  * GET
  * Get Hot NFT
  */
-exports.getHotNfts = catchAsync(async (req, res, next) => {
-  const nfts = await Transaction.aggregate([
+exports.getHotNfts = catchAsync(async (req, res) => {
+  let nfts = await Transaction.aggregate([
     {
       $match: {
         trx_type: 'transfer',
@@ -1009,7 +1189,37 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
       $unwind: '$nft',
     },
     {
-      $match: { 'nft.status': 'for_sale' },
+      $match: {
+        'nft.status': 'for_sale',
+        $or: [
+          {
+            selling_type: {
+              $exists: false,
+            },
+          },
+          {
+            selling_type: {
+              $exists: true,
+              $eq: 'fixed_price',
+            },
+          },
+          {
+            $and: [
+              {
+                selling_type: {
+                  $exists: true,
+                  $eq: 'auction',
+                },
+              },
+              {
+                auction_end_time: {
+                  $gt: new Date(),
+                },
+              },
+            ],
+          },
+        ],
+      },
     },
     {
       $limit: 4,
@@ -1025,12 +1235,85 @@ exports.getHotNfts = catchAsync(async (req, res, next) => {
         let: { owner: '$owner' },
         pipeline: [
           { $match: { $expr: { $eq: ['$account_address', '$$owner'] } } },
-          { $project: { name: 1, account_address: 1, profile_image: 1 } },
+          {
+            $project: {
+              name: 1,
+              first_name: 1,
+              last_name: 1,
+              account_address: 1,
+              profile_image: 1,
+              custom_image: 1,
+            },
+          },
         ],
         as: 'user',
       },
     },
   ]);
+
+  if (nfts.length < 4) {
+    const res = await NFT.aggregate([
+      {
+        $match: {
+          _id: { $nin: nfts.map((n) => ObjectId(n._id)) },
+          status: 'for_sale',
+          $or: [
+            {
+              selling_type: {
+                $exists: false,
+              },
+            },
+            {
+              selling_type: {
+                $exists: true,
+                $eq: 'fixed_price',
+              },
+            },
+            {
+              $and: [
+                {
+                  selling_type: {
+                    $exists: true,
+                    $eq: 'auction',
+                  },
+                },
+                {
+                  auction_end_time: {
+                    $gt: new Date(),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        $limit: 4 - nfts.length,
+      },
+      {
+        $lookup: {
+          from: User.collection.name,
+          let: { owner: '$owner' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$account_address', '$$owner'] } } },
+            {
+              $project: {
+                name: 1,
+                first_name: 1,
+                last_name: 1,
+                account_address: 1,
+                profile_image: 1,
+                custom_image: 1,
+              },
+            },
+          ],
+          as: 'user',
+        },
+      },
+    ]);
+
+    nfts = [...nfts, ...res];
+  }
 
   res.status(200).json({
     status: 'success',
@@ -1057,12 +1340,15 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await NFT.findOne({
-    _id: nft_id,
-    owner: web3.utils.toChecksumAddress(req.user.account_address),
-  })
-    .populate('mint_trx_id')
-    .populate('listing_trx_id');
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      owner: web3.utils.toChecksumAddress(req.user.account_address),
+    })
+      .populate('mint_trx_id')
+      .populate('listing_trx_id')
+      .limit(1)
+  )[0];
 
   if (!nft) {
     return next(
@@ -1090,7 +1376,6 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
       web3.utils.toChecksumAddress(req.user.account_address) &&
     !nft.transfer_trx_id
   ) {
-    console.log('NFT', nft);
     return res.status(200).json({
       status: 'success',
       message: responseMessages.MINTER_IS_OWNER,
@@ -1143,8 +1428,8 @@ exports.verifyPreviousListingTrx = catchAsync(async (req, res, next) => {
  */
 
 exports.updateSaleStatus = catchAsync(async (req, res, next) => {
-  const { trx_hash_bnb, nft_id, listing_status } = req.body;
-  let { fee_paid_in_bnb } = req.body;
+  const { trx_hash_bnb, nft_id, listing_status, selling_type } = req.body;
+  let { fee_paid_in_bnb, auction_end_time } = req.body;
 
   if (!listing_status?.trim() || !nft_id?.trim()) {
     return next(
@@ -1155,6 +1440,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
       )
     );
   }
+
   if (
     listing_status !== nftStatuses.FOR_SALE &&
     listing_status !== nftStatuses.NOT_FOR_SALE
@@ -1168,17 +1454,111 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     );
   }
 
-  const nft = await NFT.findOne({
-    _id: nft_id,
-    account_address: web3.utils.toChecksumAddress(req.user.account_address),
-  })
-    .populate('mint_trx_id')
-    .populate('listing_trx_id');
+  if (listing_status.trim() === 'for_sale' && !selling_type?.trim()) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Selling type is required!',
+        400
+      )
+    );
+  }
+
+  if (
+    listing_status.trim() === 'for_sale' &&
+    selling_type.trim() !== 'auction' &&
+    selling_type.trim() !== 'fixed_price'
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'Selling Type is invalid!',
+        400
+      )
+    );
+  }
+
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      owner: web3.utils.toChecksumAddress(req.user.account_address),
+    })
+      .populate('mint_trx_id')
+      .populate('listing_trx_id')
+      .limit(1)
+  )[0];
 
   if (!nft) {
     return next(
       new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
     );
+  }
+
+  if (listing_status.trim() === 'for_sale') {
+    if (selling_type.trim() === 'auction') {
+      nft.selling_type = 'auction';
+      nft.starting_price_ntr = nft.starting_price_ntr || nft.price_in_ntr || 0;
+      nft.price_in_ntr = null;
+    } else if (selling_type.trim() === 'fixed_price') {
+      nft.selling_type = 'fixed_price';
+      nft.auction_end_time = null;
+      nft.price_in_ntr = nft.price_in_ntr || nft.starting_price_ntr || 0;
+      nft.starting_price_ntr = null;
+    }
+  }
+
+  if (nft.selling_type === 'auction') {
+    if (listing_status !== 'for_sale') {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE,
+          'Auction NFT can only be listed for sale!',
+          400
+        )
+      );
+    }
+
+    if (isBefore(new Date(), new Date(nft.auction_end_time))) {
+      return next(
+        new AppError(
+          responseMessages.FORBIDDEN,
+          'Status can not be changed for while auction is live!',
+          403
+        )
+      );
+    }
+
+    if (!auction_end_time) {
+      return next(
+        new AppError(
+          responseMessages.MISSING_REQUIRED_FIELDS,
+          'End time for auction is required!',
+          400
+        )
+      );
+    }
+
+    auction_end_time = Number(auction_end_time);
+
+    if (isNaN(auction_end_time)) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE_TYPE,
+          'Auction end time should be number!',
+          400
+        )
+      );
+    }
+
+    if (isBefore(new Date(auction_end_time), new Date())) {
+      return next(
+        new AppError(
+          responseMessages.INVALID_VALUE,
+          'Auction end time should be in future!',
+          400
+        )
+      );
+    }
   }
 
   if (
@@ -1237,9 +1617,11 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     }
 
     // Find if this trx_hash_bnb is never used before
-    const prevTrxDoc = await Transaction.findOne({
-      trx_hash_bnb: trx_hash_bnb.toLowerCase(),
-    });
+    const prevTrxDoc = (
+      await Transaction.find({
+        trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+      }).limit(1)
+    )[0];
 
     if (prevTrxDoc) {
       if (
@@ -1268,8 +1650,20 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
         }
 
         // Update Exisiting Transaction Doc and NFT doc
-        nft.status = listing_status;
-        prevTrxDoc.listing_status = listing_status;
+        if (
+          !(
+            nft.status === listing_status &&
+            prevTrxDoc.listing_status === listing_status
+          )
+        ) {
+          nft.status = listing_status;
+          prevTrxDoc.listing_status = listing_status;
+        }
+
+        if (nft.selling_type === 'auction') {
+          nft.auction_end_time = new Date(auction_end_time);
+          nft.auction_status = 'live';
+        }
 
         const saved_nft = await nft.save();
         await prevTrxDoc.save();
@@ -1287,6 +1681,7 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
         });
       }
     }
+
     // Else a New Transaction Document will be created and NFT Document will be updated
     const newTrx = new Transaction({
       owner: web3.utils.toChecksumAddress(req.user.account_address),
@@ -1298,8 +1693,15 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     });
 
     await newTrx.save();
+
     nft.status = listing_status;
     nft.listing_trx_id = newTrx._id;
+
+    if (nft.selling_type === 'auction') {
+      nft.auction_end_time = new Date(auction_end_time);
+      nft.auction_status = 'live';
+    }
+
     const saved_nft = await nft.save();
     res.status(200).json({
       status: 'success',
@@ -1315,7 +1717,14 @@ exports.updateSaleStatus = catchAsync(async (req, res, next) => {
     });
   }
 
-  nft.status = listing_status;
+  if (nft.status !== listing_status) {
+    nft.status = listing_status;
+  }
+
+  if (nft.selling_type === 'auction') {
+    nft.auction_end_time = new Date(auction_end_time);
+    nft.auction_status = 'live';
+  }
   const saved_nft = await nft.save();
 
   res.status(200).json({
@@ -1346,7 +1755,11 @@ exports.search = catchAsync(async (req, res, next) => {
     {
       $lookup: {
         from: NFT.collection.name,
-        pipeline: [],
+        pipeline: [
+          {
+            $match: {status: nftStatuses.FOR_SALE,}
+          }
+        ],
         as: 'nfts',
       },
     },
@@ -1386,7 +1799,7 @@ exports.search = catchAsync(async (req, res, next) => {
     message: responseMessages.NFT_MINTED,
     message: 'NFT Found successfully!',
     count: searchApi.length,
-    results: searchApi,
+    nfts: searchApi,
   });
 });
 
@@ -1395,7 +1808,7 @@ exports.search = catchAsync(async (req, res, next) => {
  * Api for road-map of listing
  */
 
-exports.getRoadMap = catchAsync(async (req, res, next) => {
+exports.getRoadMap = catchAsync(async (req, res) => {
   const roadmap = await Transaction.aggregate([
     {
       $match: {
@@ -1442,9 +1855,12 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
           {
             $project: {
               name: 1,
+              first_name: 1,
+              last_name: 1,
               username: 1,
               account_address: 1,
               profile_image: 1,
+              custom_image: 1,
             },
           },
         ],
@@ -1467,5 +1883,525 @@ exports.getRoadMap = catchAsync(async (req, res, next) => {
     message: 'NFT History',
     count: roadmap.length,
     roadmap,
+  });
+});
+
+/**
+ * Get
+ * Getting All Transactions For Admin
+ */
+
+exports.getAllTransactions = catchAsync(async (req, res) => {
+  const options = {
+    page: req.query.page,
+    limit: req.query.limit,
+  };
+
+  const data = await Transaction.aggregatePaginate(
+    Transaction.aggregate([
+      {
+        $lookup: {
+          from: NFT.collection.name,
+          localField: 'nft',
+          foreignField: '_id',
+          as: 'nft',
+        },
+      },
+
+      {
+        $lookup: {
+          from: User.collection.name,
+          let: {
+            owner: '$owner',
+            minted_by: '$minted_by',
+            buyer: '$buyer',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ['$account_address', '$$owner'] },
+                    { $eq: ['$account_address', '$$minted_by'] },
+                    { $eq: ['$account_address', '$$buyer'] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $unwind: {
+          path: '$nft',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $sort: {
+          updatedAt: -1,
+        },
+      },
+      {
+        $project: {
+          trx_type: 1,
+          trx_hash_bnb: 1,
+          nft_id: '$nft._id',
+          nft_name: '$nft.name',
+          user_name: '$user.name',
+          first_name: '$user.first_name',
+          last_name: '$user.last_name',
+          user_account_address: '$user.account_address',
+        },
+      },
+    ]),
+    options
+  );
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Transactions',
+    totalData: data.totalDocs,
+    totalPages: data.totalPages,
+    page: data.page,
+    limit: data.limit,
+    pagingCounter: data.pagingCounter,
+    hasPreviousPage: data.hasPrevPage,
+    hasNextPage: data.hasNextPage,
+    previousPage: data.prevPage,
+    nextPage: data.nextPage,
+    transactions: data.docs,
+  });
+});
+
+/**
+ * POST
+ * Bid on an NFT
+ */
+
+exports.createBid = catchAsync(async (req, res, next) => {
+  const { nft_id, trx_hash_bnb, trx_hash_ntr } = req.body;
+  let { fee_paid_in_bnb, bid_price_ntr } = req.body;
+
+  if (
+    !nft_id?.trim() ||
+    !trx_hash_bnb?.trim() ||
+    !trx_hash_ntr?.trim() ||
+    !fee_paid_in_bnb ||
+    !bid_price_ntr
+  ) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'NFT ID, Trx Hash BNB, Fee paid in BNB, Trx Hash NTR and Bid Price in NTR are required!',
+        400
+      )
+    );
+  }
+
+  fee_paid_in_bnb = Number(fee_paid_in_bnb);
+  bid_price_ntr = Number(bid_price_ntr);
+
+  if (isNaN(fee_paid_in_bnb)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Fee paid in BNB should be number!',
+        400
+      )
+    );
+  }
+
+  if (isNaN(bid_price_ntr)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Bid price in NTR should be number!',
+        400
+      )
+    );
+  }
+
+  // Find Auction NFT By ID
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      selling_type: 'auction',
+      status: nftStatuses.FOR_SALE,
+      auction_end_time: {
+        $gt: new Date(),
+      },
+    }).limit(1)
+  )[0];
+
+  if (!nft) {
+    return next(
+      new AppError(
+        responseMessages.NFT_NOT_FOUND,
+        'NFT does not exist or the auction is already completed!',
+        404
+      )
+    );
+  }
+
+  // Check if the owner is not making the bid
+  if (
+    web3.utils.toChecksumAddress(req.user.account_address) ===
+    web3.utils.toChecksumAddress(nft.owner)
+  ) {
+    return next(
+      new AppError(
+        responseMessages.FORBIDDEN,
+        'You can not bid on your own NFT!',
+        403
+      )
+    );
+  }
+
+  // Verify the transactions
+
+  // Verify BNB Transaction Blockchain
+  const trxReciept = await web3.eth.getTransactionReceipt(trx_hash_bnb);
+
+  if (
+    !trxReciept ||
+    (trxReciept && trxReciept.status === false) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.to) !==
+        web3.utils.toChecksumAddress(process.env.ADMIN_ACCOUNT_FOR_BNB_FEE)) ||
+    (trxReciept &&
+      web3.utils.toChecksumAddress(trxReciept.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of BNB is invalid!',
+        403
+      )
+    );
+  }
+
+  // Verify NTR Transaction Blockchain
+  const trxRecieptNTR = await web3.eth.getTransactionReceipt(trx_hash_ntr);
+
+  if (
+    !trxRecieptNTR ||
+    (trxRecieptNTR && trxRecieptNTR.status === false) ||
+    (trxRecieptNTR &&
+      web3.utils.toChecksumAddress(trxRecieptNTR.to) !==
+        web3.utils.toChecksumAddress(process.env.NTR_CONTRACT_ADDRESS)) ||
+    (trxRecieptNTR &&
+      web3.utils.toChecksumAddress(trxRecieptNTR.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of NTR is invalid!',
+        403
+      )
+    );
+  }
+
+  // Check if these transaction hashes were used in previous bids by anyone
+  const prevBidBNB = await Bid.exists({
+    trx_hash_bnb: trx_hash_bnb.toLowerCase(),
+  });
+
+  if (prevBidBNB) {
+    return next(
+      new AppError(
+        responseMessages.TRX_HASH_USED,
+        'Transaction hash of BNB is already used in another bidding!',
+        403
+      )
+    );
+  }
+
+  const prevBidNTR = await Bid.exists({
+    trx_hashes_ntr: trx_hash_ntr.toLowerCase(),
+  });
+
+  if (prevBidNTR) {
+    return next(
+      new AppError(
+        responseMessages.TRX_HASH_USED,
+        'Transaction hash of NTR is already used in another bidding!',
+        403
+      )
+    );
+  }
+
+  // Same user can't bid twice
+  const prevBidSameUser = await Bid.exists({
+    bid_status: 'current',
+    nft: ObjectId(nft.id),
+    bidder: web3.utils.toChecksumAddress(req.user.account_address),
+  });
+
+  if (prevBidSameUser) {
+    return next(
+      new AppError(
+        responseMessages.FORBIDDEN,
+        `You can't bid twice on same NFT!`,
+        403
+      )
+    );
+  }
+
+  // Bid should be greater than the starting price
+  if (bid_price_ntr < nft.starting_price_ntr + 50) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'The Bid Price in NTR should be 50 NTRs more than the Starting Price!',
+        400
+      )
+    );
+  }
+
+  // Find the previous highest bid of this NFT which is of bid_status = "current"
+  const highestBid = (
+    await Bid.find({ status: 'current', nft: ObjectId(nft.id) })
+      .sort({ bid_price_ntr: -1 })
+      .limit(1)
+  )[0];
+
+  // Bid should be greater than the previous bid
+  if (highestBid && bid_price_ntr < highestBid.bid_price_ntr + 50) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'The Bid Price in NTR should be 50 NTRs more than the highest Bid!',
+        400
+      )
+    );
+  }
+
+  // Create New Bid
+  const new_bid = new Bid({
+    trx_hash_bnb,
+    fee_paid_in_bnb,
+    trx_hashes_ntr: [trx_hash_ntr],
+    bid_price_ntr,
+    auction_by: nft.owner,
+    bidder: req.user.account_address,
+    nft: nft.id,
+    bid_status: 'current',
+  });
+
+  await new_bid.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.BID_CREATED,
+    message_description: 'Bid created successfully!',
+    bid: new_bid,
+  });
+});
+
+/**
+ * GET
+ * Get all Bids for an NFT
+ */
+
+exports.getAllBidsForNFT = catchAsync(async (req, res, next) => {
+  const { nft_id } = req.params;
+
+  // Find Auction NFT By ID
+  const nft = (
+    await NFT.find({
+      _id: ObjectId(nft_id),
+      selling_type: 'auction',
+      status: nftStatuses.FOR_SALE,
+      auction_end_time: {
+        $gt: new Date(),
+      },
+    }).limit(1)
+  )[0];
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  const bids = await Bid.aggregate([
+    {
+      $match: {
+        nft: ObjectId(nft_id),
+        bid_status: 'current',
+      },
+    },
+    {
+      $lookup: {
+        from: User.collection.name,
+        let: { bidder: '$bidder' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$account_address', '$$bidder'] } } },
+          {
+            $project: {
+              name: 1,
+              first_name: 1,
+              last_name: 1,
+              account_address: 1,
+            },
+          },
+        ],
+        as: 'user',
+      },
+    },
+    {
+      $unwind: '$user',
+    },
+    {
+      $sort: {
+        bid_price_ntr: -1,
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.OK,
+    message_description: 'All Bids',
+    bids,
+  });
+});
+
+/**
+ * PATCH
+ * Update Bid For NFT
+ */
+
+exports.updateBidForNFT = catchAsync(async (req, res, next) => {
+  const { id: bid_id } = req.params;
+  const { trx_hash_ntr } = req.body;
+  let { bid_price_ntr } = req.body;
+
+  if (!trx_hash_ntr?.trim() || !bid_price_ntr) {
+    return next(
+      new AppError(
+        responseMessages.MISSING_REQUIRED_FIELDS,
+        'Trx Hash NTR and Bid Price in NTR are required!',
+        400
+      )
+    );
+  }
+
+  bid_price_ntr = Number(bid_price_ntr);
+
+  if (isNaN(bid_price_ntr)) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE_TYPE,
+        'Bid price in NTR should be number!',
+        400
+      )
+    );
+  }
+
+  // Find Bid By ID
+  const bid = (
+    await Bid.find({
+      _id: ObjectId(bid_id),
+      bid_status: 'current',
+      bidder: web3.utils.toChecksumAddress(req.user.account_address),
+    }).limit(1)
+  )[0];
+
+  if (!bid) {
+    return next(
+      new AppError(responseMessages.BID_NOT_FOUND, 'Bid does not exist!', 404)
+    );
+  }
+
+  const nft = await NFT.exists({
+    _id: ObjectId(bid.nft),
+    selling_type: 'auction',
+    status: nftStatuses.FOR_SALE,
+    auction_end_time: {
+      $gt: new Date(),
+    },
+  });
+
+  if (!nft) {
+    return next(
+      new AppError(responseMessages.NFT_NOT_FOUND, 'NFT does not exist!', 404)
+    );
+  }
+
+  // Verify the transactions
+
+  // Verify NTR Transaction Blockchain
+  const trxRecieptNTR = await web3.eth.getTransactionReceipt(trx_hash_ntr);
+
+  if (
+    !trxRecieptNTR ||
+    (trxRecieptNTR && trxRecieptNTR.status === false) ||
+    (trxRecieptNTR &&
+      web3.utils.toChecksumAddress(trxRecieptNTR.to) !==
+        web3.utils.toChecksumAddress(process.env.NTR_CONTRACT_ADDRESS)) ||
+    (trxRecieptNTR &&
+      web3.utils.toChecksumAddress(trxRecieptNTR.from) !==
+        web3.utils.toChecksumAddress(req.user.account_address))
+  ) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_TRX_HASH,
+        'Transaction hash of NTR is invalid!',
+        403
+      )
+    );
+  }
+
+  // Check if this transaction hash is previously used in any other bid
+  const prevBidNTR = await Bid.exists({
+    trx_hashes_ntr: trx_hash_ntr.toLowerCase(),
+  });
+
+  if (prevBidNTR) {
+    return next(
+      new AppError(
+        responseMessages.TRX_HASH_USED,
+        'Transaction hash of NTR is already used in another bidding!',
+        403
+      )
+    );
+  }
+
+  // Find the previous highest bid of this NFT which is of bid_status = "current"
+  const highestBid = (
+    await Bid.find({ status: 'current', nft: bid.nft })
+      .sort({ bid_price_ntr: -1 })
+      .limit(1)
+  )[0];
+
+  // Bid should be greater than the previous bid
+  if (bid_price_ntr + bid.bid_price_ntr < highestBid.bid_price_ntr + 50) {
+    return next(
+      new AppError(
+        responseMessages.INVALID_VALUE,
+        'The Bid Price in NTR should be 50 NTRs more than the highest Bid!',
+        400
+      )
+    );
+  }
+
+  bid.bid_price_ntr += bid_price_ntr;
+  bid.trx_hashes_ntr.push(trx_hash_ntr);
+
+  await bid.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: responseMessages.BID_UPDATED,
+    message_description: 'Bid Updated Successfully!',
+    bid,
   });
 });

@@ -33,9 +33,13 @@ exports.authenticate = catchAsync(async (req, res, next) => {
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
   // 3) Check if user still exists
-  const currentUser = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(decoded.account_address),
-  }).populate(userRoles.INFLUENCER);
+  const currentUser = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(decoded.account_address),
+    })
+      .populate(userRoles.INFLUENCER)
+      .limit(1)
+  )[0];
 
   if (!currentUser) {
     return next(
@@ -70,9 +74,13 @@ exports.isLoggedIn = catchAsync(async (req, res, next) => {
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
   // 3) Check if user still exists
-  const currentUser = await User.findOne({
-    account_address: web3.utils.toChecksumAddress(decoded.account_address),
-  }).populate(userRoles.INFLUENCER);
+  const currentUser = (
+    await User.find({
+      account_address: web3.utils.toChecksumAddress(decoded.account_address),
+    })
+      .populate(userRoles.INFLUENCER)
+      .limit(1)
+  )[0];
 
   if (!currentUser) {
     return next();

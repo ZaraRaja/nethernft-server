@@ -64,6 +64,12 @@ app.get('/api/s3-url', auth.authenticate, S3Controller.getS3UploadUrl);
 
 // NFT Routes
 app.get('/api/nfts', NFTController.getForSaleNFTs);
+app.get(
+  '/api/transactions',
+  auth.authenticate,
+  auth.authorize(userRoles.ADMIN),
+  NFTController.getAllTransactions
+);
 app.patch(
   '/api/nfts/update-price/:nft_id',
   auth.authenticate,
@@ -111,10 +117,21 @@ app.post(
   NFTController.updateSaleStatus
 );
 app.get('/api/nfts/roadmap/:id', NFTController.getRoadMap);
+app.post('/api/nfts/bids', auth.authenticate, NFTController.createBid);
+app.get('/api/nfts/bids/:nft_id', NFTController.getAllBidsForNFT);
+app.patch(
+  '/api/nfts/bids/:id',
+  auth.authenticate,
+  NFTController.updateBidForNFT
+);
 app.get('/api/nfts/by/:account_address', NFTController.getAllNftsByAddress);
 app.get('/api/nfts/:id', NFTController.getOneNft);
-// Launchpad Routes
-// app.post('/api/launchpad', launchpadUpload, LaunchpadController.create);
+app.get(
+  '/api/influencer/details',
+  auth.authenticate,
+  auth.authorize(userRoles.ADMIN),
+  InfluencerController.getAllInfluencerDetails
+);
 
 // Influencers Routes
 app.post(
@@ -123,6 +140,13 @@ app.post(
   auth.authorize(userRoles.USER, userRoles.ADMIN),
   InfluencerController.becomeInfluencer
 );
+app.patch(
+  '/api/influencers/:account',
+  auth.authenticate,
+  auth.authorize(userRoles.REJECTED_INFLUENCER),
+  InfluencerController.updateInfluencer
+);
+
 app.get('/api/influencers', InfluencerController.getAllInfluencers);
 app.get('/api/influencers/top', InfluencerController.getTopInfluencers);
 app.get(
@@ -140,13 +164,7 @@ app.patch(
 app.patch(
   '/api/influencers/follow/:address',
   auth.authenticate,
-  auth.authorize(userRoles.USER),
   InfluencerController.follow
-);
-// TODO: Remove it
-app.get(
-  '/api/influencers/:address/nfts',
-  InfluencerController.getInfluencerWithNfts
 );
 app.get(
   '/api/influencers/:address/followers',
@@ -157,7 +175,6 @@ app.get(
   '/api/influencers/:address',
   InfluencerController.getInfluencerByAddress
 );
-
 // Auth Routes
 app.post('/api/auth/signup', auth.isLoggedIn, AuthController.signup);
 app.get(
