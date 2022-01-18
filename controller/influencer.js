@@ -18,6 +18,7 @@ const nftStatuses = require('../config/nft_statuses');
 exports.becomeInfluencer = catchAsync(async (req, res, next) => {
   const {
     name,
+    lastName,
     email,
     profile_image,
     short_bio,
@@ -94,7 +95,8 @@ exports.becomeInfluencer = catchAsync(async (req, res, next) => {
   const saved_influencer = await new_influencer.save();
 
   // save the reference of saved_influencer in corresponding user document
-  req.user.name = name;
+  req.user.first_name = name;
+  req.user.last_name = lastName;
   req.user.email = email;
   req.user.profile_image = profile_image;
   req.user.roles.push(userRoles.PENDING_INFLUENCER);
